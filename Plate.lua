@@ -182,7 +182,10 @@ function Plate:EnsureAuras()
 			local count = button:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
 			count:SetPoint("BOTTOMRIGHT", 3, -2)
 			button:SetApplicationCount(count)
-			local time = button:CreateFontString(nil, "OVERLAY", "GameFontNormalOutlineTiny")
+			-- Forever has no outlined tiny font object: take the tiny one and outline it here.
+			local time = button:CreateFontString(nil, "OVERLAY", "GameFontNormalTiny")
+			local fontFile, fontHeight = time:GetFont()
+			time:SetFont(fontFile, fontHeight, "OUTLINE")
 			time:SetPoint("CENTER", 0, 1)
 			button:SetDurationText(time, {})
 		end,
