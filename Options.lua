@@ -163,6 +163,12 @@ function ns.BuildOptions()
 	Range(category, { "general", "ccGlowSeconds" }, "Crowd Control Glow",
 		"How many seconds before your crowd control ends the icon starts to glow and its number turns red.",
 		ns.CC_GLOW_MIN, ns.CC_GLOW_MAX, 1)
+	Toggle(category, { "general", "showPurge" }, "Show Removable Enemy Buffs",
+		"Magic buffs on an enemy that can be dispelled, purged or stolen, in a blue frame beside its NamePlate.")
+	Toggle(category, { "general", "executeColor" }, "Execute Color",
+		"An enemy health bar turns orange once its health is under the percent below.")
+	Range(category, { "general", "executePercent" }, "Execute Percent",
+		"Health percent under which the bar turns orange. 25 suits Drain Soul.", 5, 50, 5)
 	Range(category, { "general", "maxDistance" }, "View Distance",
 		"How far away NamePlates are shown, in yards. 60 is the most the game allows.", 20, ns.MAX_DISTANCE, 1)
 

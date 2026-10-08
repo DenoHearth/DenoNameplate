@@ -49,6 +49,9 @@ ns.defaults = {
 		showAuras = true,
 		showCC = true,          -- your own crowd control as a larger icon over the plate
 		ccGlowSeconds = 3,      -- its glow and red number start this many seconds before the end
+		showPurge = true,       -- enemy magic buffs you can remove, beside the plate
+		executeColor = true,    -- enemy health bar turns orange in execute range
+		executePercent = 25,
 		showBox = false,
 		minimap = { show = true, angle = 200 },
 		clickable = { width = 0, height = 0, targetScale = 1.2 },

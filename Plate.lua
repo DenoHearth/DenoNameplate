@@ -17,6 +17,26 @@ percentCurve:SetType(Enum.LuaCurveType.Linear)
 percentCurve:AddPoint(0, 0)
 percentCurve:AddPoint(1, 100)
 
+-- Execute range: under a chosen health percent an enemy bar turns orange. Health is hidden
+-- from addon code, so the client picks the colour: a step curve that holds the execute
+-- colour below the threshold and the plate's normal colour above it. One curve per normal
+-- colour and threshold, kept for reuse.
+local EXECUTE_COLOR = CreateColor(1, 0.55, 0.1, 1)
+local executeCurves = {}
+
+local function ExecuteCurve(r, g, b, percent)
+	local key = string.format("%.2f:%.2f:%.2f:%d", r, g, b, percent)
+	local curve = executeCurves[key]
+	if not curve then
+		curve = C_CurveUtil.CreateColorCurve()
+		curve:SetType(Enum.LuaCurveType.Step)
+		curve:AddPoint(0, EXECUTE_COLOR)
+		curve:AddPoint(percent / 100, CreateColor(r, g, b, 1))
+		executeCurves[key] = curve
+	end
+	return curve
+end
+
 local UNIT_EVENTS = {
 	"UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_FLAGS",
 	"UNIT_THREAT_LIST_UPDATE", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
@@ -265,6 +285,37 @@ function Plate:EnsureAuras()
 		end,
 	})
 	self:EnsureCC()
+	self:EnsurePurge()
+end
+
+-- Enemy buffs you can take off: the magic ones, in a blue frame beside the plate.
+function Plate:EnsurePurge()
+	if self.purge then return end
+	local container = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
+	self.purge = container
+	container:SetSize(1, 1)
+	container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal)
+	container:SetFlowLayoutAnchorPoint("BOTTOMLEFT")
+	container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Up)
+	container:SetFlowLayoutMaximumLineSize(22 * 3)
+	container:AddAuraGroup("purge", "HELPFUL", {
+		candidateFilters = { includeDispelTypes = { Magic = true } },
+		maxFrameCount = 3,
+		sortMethod = AuraContainerSortMethod.Expiration,
+		sortDirection = AuraContainerSortDirection.Normal,
+		layout = { elementWidth = 18, elementHeight = 18, elementSpacing = 4, lineSpacing = 4 },
+		initializeFrame = function(button)
+			button:SetSize(18, 18)
+			local border = button:CreateTexture(nil, "BACKGROUND")
+			border:SetAllPoints()
+			border:SetColorTexture(0.3, 0.6, 1, 1)
+			local icon = button:CreateTexture(nil, "ARTWORK")
+			icon:SetPoint("TOPLEFT", 1, -1)
+			icon:SetPoint("BOTTOMRIGHT", -1, 1)
+			icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+			button:SetIcon(icon)
+		end,
+	})
 end
 
 -- The crowd control icon and, over it, the glow. Built out of combat with the debuff row.
@@ -392,6 +443,12 @@ function Plate:ApplyOptions()
 		end
 		self.auras:SetEnabled(general.showAuras and not self.isFriend)
 	end
+	if self.purge then
+		-- to the right of the bar, past the level box
+		self.purge:ClearAllPoints()
+		self.purge:SetPoint("BOTTOMLEFT", health, "BOTTOMRIGHT", 24, -3)
+		self.purge:SetEnabled(general.showPurge and not self.isFriend)
+	end
 	if self.cc then
 		-- top middle: over the name, and over the debuff row when that is shown
 		local lift = (options.name.displayName and options.name.fontSize + 9 or 4) + (general.showAuras and 20 or 0)
@@ -415,6 +472,7 @@ function Plate:SetUnit(unit)
 	self:EnsureAuras()
 	if self.auras then self.auras:SetUnit(unit) end
 	if self.cc then self.cc:SetUnit(unit) end
+	if self.purge then self.purge:SetUnit(unit) end
 	if self.ccGlow then self.ccGlow:SetUnit(unit) end
 	self:Refresh()
 	self:Show()
@@ -426,6 +484,7 @@ function Plate:ClearUnit()
 	self.cast:Hide()
 	if self.auras then self.auras:SetEnabled(false) end
 	if self.cc then self.cc:SetEnabled(false) end
+	if self.purge then self.purge:SetEnabled(false) end
 	if self.ccGlow then self.ccGlow:SetEnabled(false) end
 	self:Hide()
 end
@@ -474,6 +533,9 @@ function Plate:UpdateHealth()
 	local unit, health = self.unit, self.health
 	health:SetMinMaxValues(0, UnitHealthMax(unit))
 	health:SetValue(UnitHealth(unit))
+	if self.executeCurve then
+		health:SetStatusBarColor(UnitHealthPercent(unit, true, self.executeCurve):GetRGB())
+	end
 
 	local text = health.text
 	if not self.options.health.showTextFormat then
@@ -534,7 +596,15 @@ function Plate:UpdateColor()
 	else
 		r, g, b = UnitSelectionColor(unit, self.isFriend)
 	end
-	self.health:SetStatusBarColor(r, g, b)
+	local general = ns.db.general
+	self.executeCurve = nil
+	-- enemies only, and only when the normal colour is plain data a curve can be built from
+	if general.executeColor and not self.isFriend and Plain(r) and Plain(g) and Plain(b) then
+		self.executeCurve = ExecuteCurve(r, g, b, general.executePercent)
+		self.health:SetStatusBarColor(UnitHealthPercent(unit, true, self.executeCurve):GetRGB())
+	else
+		self.health:SetStatusBarColor(r, g, b)
+	end
 end
 
 function Plate:UpdateName()

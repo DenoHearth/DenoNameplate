@@ -26,6 +26,9 @@ around it. Written from scratch for World of Warcraft: Forever and its addon rul
 - **Your crowd control** (Fear, Polymorph, Sap ...) as a larger icon over the middle of the
   enemy plate, with the proc glow and a red number in its last seconds (3 by default, 1 to 10).
   Only your own, on every enemy with a visible nameplate.
+- **Execute colour:** an enemy bar turns orange under a health percent you set (25 by default).
+- **Removable enemy buffs:** magic buffs that can be dispelled, purged or stolen, in a blue
+  frame beside the plate.
 - **Target:** a larger plate (adjustable scale) with a highlight and a bright border.
 - **Classic style:** an optional bordered look with a fixed size.
 - **Clickable area:** width and height of the click box, with a toggle that draws the box
@@ -96,4 +99,4 @@ What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).  Current version: 1.1.0.
+MIT — see [LICENSE](LICENSE).  Current version: 1.2.0.
