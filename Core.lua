@@ -47,6 +47,8 @@ ns.defaults = {
 		useClassicStyle = false,
 		maxDistance = ns.MAX_DISTANCE,
 		showAuras = true,
+		showCC = true,          -- your own crowd control as a larger icon over the plate
+		ccGlowSeconds = 3,      -- its glow and red number start this many seconds before the end
 		showBox = false,
 		minimap = { show = true, angle = 200 },
 		clickable = { width = 0, height = 0, targetScale = 1.2 },
@@ -150,6 +152,7 @@ function ns.ApplyClientSettings()
 end
 
 function ns.Refresh()
+	ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
 	ns.ApplyClientSettings()
 	ns.UpdateAllPlates()
 	ns.UpdateMinimapButton()
@@ -173,6 +176,7 @@ loader:SetScript("OnEvent", function(self, event, name)
 				clickable.width, clickable.height = math.floor(width + 0.5), math.floor(height + 0.5)
 			end
 		end
+		ns.db.general.ccGlowSeconds = ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
 		ns.ApplyClientSettings()
 		ns.StartDriver()
 		ns.BuildOptions()

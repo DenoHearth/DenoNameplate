@@ -36,6 +36,78 @@ local CAST_EVENTS = {
 }
 
 ------------------------------------------------------------------------------------------
+-- Crowd control: your own Fear, Polymorph, Sap ... as one larger icon above the middle of
+-- the plate, glowing during its last seconds.
+--
+-- Addon code may not read the time left on an aura, and no script runs inside an aura
+-- button. So the timer colour is a curve the client evaluates, and the glow is a second,
+-- otherwise empty aura slot whose "time text" comes from a number formatter with one rule
+-- per 1/30 second: each rule's text is one frame of the action bar proc glow as an inline
+-- picture, and from the chosen number of seconds up the text is blank. The client picks
+-- the rule from the time left, so it plays the animation and starts it by itself.
+------------------------------------------------------------------------------------------
+local CC_KEY = "cc"
+local CC_ICON = 26
+local CC_GLOW_SIZE = 40
+local CC_GLOW_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
+local CC_GLOW_COLUMNS, CC_GLOW_ROWS, CC_GLOW_FRAMES = 5, 6, 30   -- as in ActionButtonSpellAlerts.xml
+ns.CC_GLOW_MIN, ns.CC_GLOW_MAX = 1, 10
+
+local ccTimeColor = C_CurveUtil.CreateColorCurve()
+ccTimeColor:SetType(Enum.LuaCurveType.Step)
+
+local ccTimeFormat, ccGlowFormat, ccGlowBinding, ccGlowFrames
+if C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
+	-- whole seconds, rounded up
+	ccTimeFormat = C_StringUtil.CreateNumericRuleFormatter()
+	ccTimeFormat:SetBreakpoints({
+		{ threshold = 0, format = "%d", step = 1, rounding = Enum.NumericRuleFormatRounding.Up },
+	})
+	local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(CC_GLOW_ATLAS)
+	if info then
+		-- the atlas entry in pixels of its file
+		local fileWidth = info.width / (info.rightTexCoord - info.leftTexCoord)
+		local fileHeight = info.height / (info.bottomTexCoord - info.topTexCoord)
+		local left, top = info.leftTexCoord * fileWidth, info.topTexCoord * fileHeight
+		local cellWidth, cellHeight = info.width / CC_GLOW_COLUMNS, info.height / CC_GLOW_ROWS
+		local file = info.file or info.filename
+		ccGlowFrames = {}
+		for frame = 0, CC_GLOW_FRAMES - 1 do
+			local x = left + (frame % CC_GLOW_COLUMNS) * cellWidth
+			local y = top + math.floor(frame / CC_GLOW_COLUMNS) * cellHeight
+			ccGlowFrames[frame] = string.format("|T%s:%d:%d:0:0:%d:%d:%d:%d:%d:%d|t", tostring(file), CC_GLOW_SIZE,
+				CC_GLOW_SIZE, fileWidth + 0.5, fileHeight + 0.5, x + 0.5, x + cellWidth + 0.5, y + 0.5, y + cellHeight + 0.5)
+		end
+		ccGlowFormat = C_StringUtil.CreateNumericRuleFormatter()
+		-- redrawn every frame of the animation
+		ccGlowBinding = C_DurationUtil.CreateDurationTextBinding()
+		ccGlowBinding:SetUpdateInterval(1 / CC_GLOW_FRAMES)
+	end
+end
+
+-- How many seconds before the end the glow starts and the number turns red. Every plate
+-- shares the formatter and the curve, so a change shows at once.
+function ns.SetCCGlowSeconds(seconds)
+	seconds = math.max(ns.CC_GLOW_MIN, math.min(ns.CC_GLOW_MAX, math.floor(tonumber(seconds) or 3)))
+	ccTimeColor:ClearPoints()
+	ccTimeColor:AddPoint(0, CreateColor(1, 0.25, 0.25, 1))
+	ccTimeColor:AddPoint(seconds, CreateColor(1, 0.85, 0.2, 1))
+	ccTimeColor:AddPoint(seconds + 2, CreateColor(1, 1, 1, 1))
+	if ccGlowFormat then
+		local rules = {}
+		local steps = seconds * CC_GLOW_FRAMES
+		for step = 0, steps - 1 do
+			-- time runs down, the animation runs forward
+			rules[#rules + 1] = { threshold = step / CC_GLOW_FRAMES, format = ccGlowFrames[(steps - 1 - step) % CC_GLOW_FRAMES] }
+		end
+		rules[#rules + 1] = { threshold = seconds, format = " " }
+		ccGlowFormat:SetBreakpoints(rules)
+	end
+	return seconds
+end
+ns.SetCCGlowSeconds(3)
+
+------------------------------------------------------------------------------------------
 -- Construction
 ------------------------------------------------------------------------------------------
 local function HasAuraContainer()
@@ -164,6 +236,8 @@ function Plate:EnsureAuras()
 	container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Up)
 	container:SetFlowLayoutMaximumLineSize(24 * 5)
 	container:AddAuraGroup("debuffs", "HARMFUL|PLAYER", {
+		-- crowd control has its own, larger icon
+		candidateFilters = { excludeSpellIDs = ns.ccSpells },
 		maxFrameCount = 5,
 		sortMethod = AuraContainerSortMethod.Expiration,
 		sortDirection = AuraContainerSortDirection.Normal,
@@ -188,6 +262,55 @@ function Plate:EnsureAuras()
 			time:SetFont(fontFile, fontHeight, "OUTLINE")
 			time:SetPoint("CENTER", 0, 1)
 			button:SetDurationText(time, {})
+		end,
+	})
+	self:EnsureCC()
+end
+
+-- The crowd control icon and, over it, the glow. Built out of combat with the debuff row.
+function Plate:EnsureCC()
+	if self.cc then return end
+	local filters = { includeSpellIDs = ns.ccSpells }
+	local cc = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
+	self.cc = cc
+	cc:SetSize(CC_ICON, CC_ICON)
+	cc:SetFrameLevel(self:GetFrameLevel() + 6)
+	cc:AddAuraSlot(CC_KEY, "HARMFUL|PLAYER", {
+		candidateFilters = filters,
+		-- Every region is built and handed over here; the button is sealed afterwards.
+		initializeFrame = function(button)
+			button:SetSize(CC_ICON, CC_ICON)
+			button:SetPoint("CENTER", cc, "CENTER")
+			local border = button:CreateTexture(nil, "BACKGROUND")
+			border:SetAllPoints()
+			border:SetColorTexture(0, 0, 0, 1)
+			local icon = button:CreateTexture(nil, "ARTWORK")
+			icon:SetPoint("TOPLEFT", 1, -1)
+			icon:SetPoint("BOTTOMRIGHT", -1, 1)
+			icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+			button:SetIcon(icon)
+			local time = button:CreateFontString(nil, "OVERLAY", "NumberFontNormalLarge")
+			time:SetPoint("CENTER", 0, 0)
+			button:SetDurationText(time, {
+				textFormatter = ccTimeFormat,
+				textColor = { curve = ccTimeColor, property = Enum.DurationTextBindingProperty.RemainingDuration },
+			})
+		end,
+	})
+	if not ccGlowFormat then return end
+	local glow = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
+	self.ccGlow = glow
+	glow:SetPoint("CENTER", cc, "CENTER")
+	glow:SetSize(CC_ICON, CC_ICON)
+	glow:SetFrameLevel(self:GetFrameLevel() + 10)
+	glow:AddAuraSlot(CC_KEY, "HARMFUL|PLAYER", {
+		candidateFilters = filters,
+		initializeFrame = function(button)
+			button:SetSize(CC_ICON, CC_ICON)
+			button:SetPoint("CENTER", glow, "CENTER")
+			local text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+			text:SetPoint("CENTER", 0, 0)
+			button:SetDurationText(text, { binding = ccGlowBinding, textFormatter = ccGlowFormat })
 		end,
 	})
 end
@@ -269,6 +392,16 @@ function Plate:ApplyOptions()
 		end
 		self.auras:SetEnabled(general.showAuras and not self.isFriend)
 	end
+	if self.cc then
+		-- top middle: over the name, and over the debuff row when that is shown
+		local lift = (options.name.displayName and options.name.fontSize + 9 or 4) + (general.showAuras and 20 or 0)
+		local shown = general.showCC and not self.isFriend
+		self.cc:ClearAllPoints()
+		-- by its centre: the client resizes a container around its slot
+		self.cc:SetPoint("CENTER", health, "TOP", 0, lift + CC_ICON / 2)
+		self.cc:SetEnabled(shown)
+		if self.ccGlow then self.ccGlow:SetEnabled(shown) end
+	end
 end
 
 ------------------------------------------------------------------------------------------
@@ -281,6 +414,8 @@ function Plate:SetUnit(unit)
 	for event in pairs(CAST_EVENTS) do self:RegisterUnitEvent(event, unit) end
 	self:EnsureAuras()
 	if self.auras then self.auras:SetUnit(unit) end
+	if self.cc then self.cc:SetUnit(unit) end
+	if self.ccGlow then self.ccGlow:SetUnit(unit) end
 	self:Refresh()
 	self:Show()
 end
@@ -290,6 +425,8 @@ function Plate:ClearUnit()
 	self:UnregisterAllEvents()
 	self.cast:Hide()
 	if self.auras then self.auras:SetEnabled(false) end
+	if self.cc then self.cc:SetEnabled(false) end
+	if self.ccGlow then self.ccGlow:SetEnabled(false) end
 	self:Hide()
 end
 

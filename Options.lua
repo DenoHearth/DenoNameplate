@@ -157,6 +157,12 @@ function ns.BuildOptions()
 	Toggle(category, { "general", "useClassicStyle" }, "Classic Style", "Use classic style textures.")
 	Toggle(category, { "general", "showAuras" }, "Show My Debuffs",
 		"Show your debuffs above enemy NamePlates. Takes effect on plates created after the change.")
+	Toggle(category, { "general", "showCC" }, "Show My Crowd Control",
+		"Your own Fear, Polymorph, Sap and the like as a larger icon over the middle of the enemy NamePlate, "
+		.. "with a glow before it ends. Only yours, never another player's.")
+	Range(category, { "general", "ccGlowSeconds" }, "Crowd Control Glow",
+		"How many seconds before your crowd control ends the icon starts to glow and its number turns red.",
+		ns.CC_GLOW_MIN, ns.CC_GLOW_MAX, 1)
 	Range(category, { "general", "maxDistance" }, "View Distance",
 		"How far away NamePlates are shown, in yards. 60 is the most the game allows.", 20, ns.MAX_DISTANCE, 1)
 
