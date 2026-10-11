@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.0 — 2026-10-11
+
+- Crowd control diminishing returns, left of the enemy plate: one icon per kind of crowd control, framed yellow (the next one lasts half), orange (a quarter) or red (immune), with the seconds until it resets; a grey icon is partly an estimate. Enemy players by default, hostile NPCs with a switch. The tracking is Forever Simple DR by Tarolg (MIT), built in with his licence
+- Removable enemy buffs (right of the plate) show only while you can remove one: a Felhunter out, or a Shaman or Priest
+
 ## v1.2.1 — 2026-10-11
 
 - Enemy bars keep their plain colour in a fight: the red threat glow no longer lies over every enemy you are fighting (it washed the bar out to pink). The target highlight takes the bar colour on friendly plates.

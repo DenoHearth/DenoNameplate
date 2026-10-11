@@ -50,6 +50,8 @@ ns.defaults = {
 		showCC = true,          -- your own crowd control as a larger icon over the plate
 		ccGlowSeconds = 3,      -- its glow and red number start this many seconds before the end
 		showPurge = true,       -- enemy magic buffs you can remove, beside the plate
+		showDR = true,          -- diminishing returns of crowd control, left of the plate
+		drNPCs = false,         -- also on hostile NPCs (by the rules for players: a guess there)
 		executeColor = true,    -- enemy health bar turns orange in execute range
 		executePercent = 25,
 		showBox = false,
@@ -153,6 +155,70 @@ function ns.ApplyClientSettings()
 		C_NamePlate.SetNamePlateSize(clickable.width, clickable.height)
 	end
 end
+
+-- Removable enemy buffs are only worth showing while you can remove one: his ask, 2026-10-11
+-- ("only show dispellable buffs if I have the current pet to remove those like felhunter out
+-- but if I have like a succubus then dont show"). True while you, or the pet that is out, know
+-- a spell that takes a magic buff off an enemy.
+local PURGES = {
+	19505, 19731, 19734, 19736,     -- Devour Magic (Felhunter)
+	370, 8012,                      -- Purge (Shaman)
+	527, 988,                       -- Dispel Magic (Priest)
+}
+local canPurge = false
+
+local FELHUNTER = 15             -- creature family; measured in client 70170: UnitCreatureFamily("pet") gives "Felhunter", 15
+
+local function ReadCanPurge()
+	local petOut = UnitExists("pet")
+	-- by its kind: a Felhunter below level 30 has not learned Devour Magic yet, but it is the pet for it
+	if not issecretvalue(petOut) and petOut then
+		local _, family = UnitCreatureFamily("pet")
+		if not issecretvalue(family) and family == FELHUNTER then return true end
+	end
+	for _, id in ipairs(PURGES) do
+		local known = C_SpellBook.IsSpellKnown(id)
+		if not issecretvalue(known) and known then return true end
+		if not issecretvalue(petOut) and petOut then
+			known = C_SpellBook.IsSpellKnown(id, Enum.SpellBookSpellBank.Pet)
+			if not issecretvalue(known) and known then return true end
+		end
+	end
+	return false
+end
+
+function ns.CanPurge() return canPurge end
+
+local purgeWaiting = false
+function ns.UpdateCanPurge()
+	local now = ReadCanPurge()
+	if now == canPurge and not purgeWaiting then return end
+	canPurge = now
+	-- the icon rows may only be switched out of combat; a pet summoned in a fight counts after it
+	if InCombatLockdown() then
+		purgeWaiting = true
+		return
+	end
+	purgeWaiting = false
+	if ns.db then ns.UpdateAllPlates() end
+end
+
+local purgeWatch = CreateFrame("Frame")
+purgeWatch:RegisterEvent("PLAYER_LOGIN")
+purgeWatch:RegisterEvent("SPELLS_CHANGED")
+purgeWatch:RegisterEvent("PET_BAR_UPDATE")
+purgeWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+purgeWatch:RegisterUnitEvent("UNIT_PET", "player")
+-- One look a moment after the events, when the pet swap has settled.
+local purgeQueued = false
+purgeWatch:SetScript("OnEvent", function()
+	if purgeQueued then return end
+	purgeQueued = true
+	C_Timer.After(1.5, function()
+		purgeQueued = false
+		ns.UpdateCanPurge()
+	end)
+end)
 
 function ns.Refresh()
 	ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)

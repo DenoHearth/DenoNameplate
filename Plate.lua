@@ -447,7 +447,7 @@ function Plate:ApplyOptions()
 		-- to the right of the bar, past the level box
 		self.purge:ClearAllPoints()
 		self.purge:SetPoint("BOTTOMLEFT", health, "BOTTOMRIGHT", 24, -3)
-		self.purge:SetEnabled(general.showPurge and not self.isFriend)
+		self.purge:SetEnabled(general.showPurge and not self.isFriend and ns.CanPurge())
 	end
 	if self.cc then
 		-- top middle: over the name, and over the debuff row when that is shown

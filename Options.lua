@@ -164,7 +164,15 @@ function ns.BuildOptions()
 		"How many seconds before your crowd control ends the icon starts to glow and its number turns red.",
 		ns.CC_GLOW_MIN, ns.CC_GLOW_MAX, 1)
 	Toggle(category, { "general", "showPurge" }, "Show Removable Enemy Buffs",
-		"Magic buffs on an enemy that can be dispelled, purged or stolen, in a blue frame beside its NamePlate.")
+		"Magic buffs on an enemy that can be dispelled or purged, in a blue frame beside its NamePlate. Only while "
+		.. "you can remove one: with a Felhunter out, or as a Shaman or Priest.")
+	Toggle(category, { "general", "showDR" }, "Show Crowd Control Diminishing Returns",
+		"Left of an enemy player's NamePlate: one icon per kind of crowd control, framed yellow (the next one lasts "
+		.. "half), orange (a quarter) or red (immune), with the seconds until it resets. A grey icon is partly an "
+		.. "estimate. Tracking by Forever Simple DR (Tarolg).")
+	Toggle(category, { "general", "drNPCs" }, "Diminishing Returns On NPCs Too",
+		"Also show it on hostile NPCs, counted by the rules for players. Whether and how an NPC diminishes "
+		.. "is not known, so on NPCs this is a guess.")
 	Toggle(category, { "general", "executeColor" }, "Execute Color",
 		"An enemy health bar turns orange once its health is under the percent below.")
 	Range(category, { "general", "executePercent" }, "Execute Percent",
