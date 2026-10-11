@@ -596,6 +596,12 @@ function Plate:UpdateColor()
 	else
 		r, g, b = UnitSelectionColor(unit, self.isFriend)
 	end
+	-- the target highlight takes the bar's colour on friendly plates and stays white on enemies
+	if self.isFriend then
+		self.health.selection:SetVertexColor(r, g, b)
+	else
+		self.health.selection:SetVertexColor(1, 1, 1)
+	end
 	local general = ns.db.general
 	self.executeCurve = nil
 	-- enemies only, and only when the normal colour is plain data a curve can be built from
@@ -632,7 +638,10 @@ function Plate:UpdateAggro()
 		aggro:Hide()
 		return
 	end
-	local status = Plain(UnitThreatSituation("player", self.unit))
+	-- The unit's own threat state, as the original asks for it: a mob the player is fighting has
+	-- none, so its bar keeps its plain colour. Asking for the player's threat on the mob (as this
+	-- did until 1.2.1) laid the red glow over every enemy in a fight and washed the bar out.
+	local status = Plain(UnitThreatSituation(self.unit))
 	if status and status > 0 then
 		aggro:SetVertexColor(GetThreatStatusColor(status))
 		aggro:Show()

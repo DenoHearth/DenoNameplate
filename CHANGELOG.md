@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.1 — 2026-10-11
+
+- Enemy bars keep their plain colour in a fight: the red threat glow no longer lies over every enemy you are fighting (it washed the bar out to pink). The target highlight takes the bar colour on friendly plates.
+
 ## v1.2.0 — 2026-10-08
 
 - Enemy health bar turns orange in execute range (25% by default); enemy magic buffs that can be removed show in a blue frame beside the plate
