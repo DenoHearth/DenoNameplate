@@ -54,6 +54,7 @@ ns.defaults = {
 		drNPCs = false,         -- also on hostile NPCs (by the rules for players: a guess there)
 		executeColor = true,    -- enemy health bar turns orange in execute range
 		executePercent = 25,
+		hideWorldNames = true,  -- the game's own floating names on mobs: the NamePlate carries the name
 		showBox = false,
 		minimap = { show = true, angle = 200 },
 		clickable = { width = 0, height = 0, targetScale = 1.2 },
@@ -141,7 +142,36 @@ end
 ------------------------------------------------------------------------------------------
 local pendingClientSettings = false
 
--- Clickable area and view distance. Both are refused in combat, so they wait for it to end.
+-- The game writes a large name over every NPC that has no NamePlate (too far, out of sight), which
+-- reads as a second set of names beside the plates. Measured in client 70338: with these values
+-- mobs carry a name only on their NamePlate, and quest givers, vendors and trainers keep theirs.
+local WORLD_NAMES = {
+	UnitNameNPC = "0",
+	UnitNameHostleNPC = "0",
+	UnitNameFriendlySpecialNPCName = "1",
+	UnitNameInteractiveNPC = "1",
+}
+
+-- The player's own values are kept in the saved settings and put back when the option is off.
+local function ApplyWorldNames(general)
+	if general.hideWorldNames then
+		if not general.worldNamesBefore then
+			local before = {}
+			for cvar in pairs(WORLD_NAMES) do before[cvar] = C_CVar.GetCVar(cvar) end
+			general.worldNamesBefore = before
+		end
+		for cvar, value in pairs(WORLD_NAMES) do
+			if C_CVar.GetCVar(cvar) ~= value then C_CVar.SetCVar(cvar, value) end
+		end
+	elseif general.worldNamesBefore then
+		for cvar, value in pairs(general.worldNamesBefore) do
+			if WORLD_NAMES[cvar] and type(value) == "string" then C_CVar.SetCVar(cvar, value) end
+		end
+		general.worldNamesBefore = nil
+	end
+end
+
+-- Clickable area, view distance and the game's own names. Refused in combat, so they wait for it to end.
 function ns.ApplyClientSettings()
 	if InCombatLockdown() then
 		pendingClientSettings = true
@@ -150,6 +180,7 @@ function ns.ApplyClientSettings()
 	pendingClientSettings = false
 	local general = ns.db.general
 	C_CVar.SetCVar("nameplateMaxDistance", general.maxDistance)
+	ApplyWorldNames(general)
 	local clickable = general.clickable
 	if clickable.width > 0 and clickable.height > 0 then
 		C_NamePlate.SetNamePlateSize(clickable.width, clickable.height)

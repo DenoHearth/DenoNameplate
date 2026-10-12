@@ -177,6 +177,10 @@ function ns.BuildOptions()
 		"An enemy health bar turns orange once its health is under the percent below.")
 	Range(category, { "general", "executePercent" }, "Execute Percent",
 		"Health percent under which the bar turns orange. 25 suits Drain Soul.", 5, 50, 5)
+	Toggle(category, { "general", "hideWorldNames" }, "Hide The Game's Names On Mobs",
+		"The game writes a large name over every creature that has no NamePlate (too far away or out of sight). "
+		.. "On: mobs are named on their NamePlate only; quest givers, vendors and trainers keep their name. "
+		.. "Off: your own name settings come back. Applied out of combat.")
 	Range(category, { "general", "maxDistance" }, "View Distance",
 		"How far away NamePlates are shown, in yards. 60 is the most the game allows.", 20, ns.MAX_DISTANCE, 1)
 

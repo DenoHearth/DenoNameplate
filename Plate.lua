@@ -589,7 +589,7 @@ function Plate:UpdateColor()
 	if classColor then
 		r, g, b = classColor.r, classColor.g, classColor.b
 	elseif self:IsTapDenied() then
-		r, g, b = 0.9, 0.9, 0.9
+		r, g, b = 0.5, 0.5, 0.5
 	elseif self:IsOnThreatList() then
 		r, g, b = 1, 0, 0
 	elseif isPlayer and self.isFriend then

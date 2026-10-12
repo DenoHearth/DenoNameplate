@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.2 — 2026-10-13
+
+- New option "Hide The Game's Names On Mobs" (on by default): the game no longer writes its own large name over creatures that have no nameplate, so a mob is named once, on its nameplate. Quest givers, vendors and trainers keep their name; switching it off brings your own name settings back
+- A mob tagged by another player has a clearly grey bar instead of a nearly white one
+
 ## v1.3.1 — 2026-10-12
 
 - The crowd control icon over an enemy plate now shows anybody's crowd control, not only your own: a mob another player stunned or feared is marked too
