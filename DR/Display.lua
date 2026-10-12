@@ -128,6 +128,7 @@ driver:SetScript("OnEvent", function(self)
 	DenoNameplateDB.dr = saved
 	DR.db = saved
 	saved.chat = false                    -- no chat lines of its own; the switches are in our options
+	saved.filter = "all"                  -- every kind of crowd control, not only the kinds our class has
 	DR.tracker = DR.NewTracker(function() return DR.db.resetTime end, DR.Learned)
 	DR.OnSettingChanged(function(key)
 		if key == "enabled" and not DR.db.enabled then DR.ClearTracking() end

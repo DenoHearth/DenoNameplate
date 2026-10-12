@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.1 — 2026-10-12
+
+- The crowd control icon over an enemy plate now shows anybody's crowd control, not only your own: a mob another player stunned or feared is marked too
+- Diminishing returns count every kind of crowd control, whoever applied it, not only the kinds your own class has
+
 ## v1.3.0 — 2026-10-11
 
 - Crowd control diminishing returns, left of the enemy plate: one icon per kind of crowd control, framed yellow (the next one lasts half), orange (a quarter) or red (immune), with the seconds until it resets; a grey icon is partly an estimate. Enemy players by default, hostile NPCs with a switch. The tracking is Forever Simple DR by Tarolg (MIT), built in with his licence

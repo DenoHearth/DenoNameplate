@@ -157,17 +157,17 @@ function ns.BuildOptions()
 	Toggle(category, { "general", "useClassicStyle" }, "Classic Style", "Use classic style textures.")
 	Toggle(category, { "general", "showAuras" }, "Show My Debuffs",
 		"Show your debuffs above enemy NamePlates. Takes effect on plates created after the change.")
-	Toggle(category, { "general", "showCC" }, "Show My Crowd Control",
-		"Your own Fear, Polymorph, Sap and the like as a larger icon over the middle of the enemy NamePlate, "
-		.. "with a glow before it ends. Only yours, never another player's.")
+	Toggle(category, { "general", "showCC" }, "Show Crowd Control",
+		"Fear, Polymorph, Sap, stuns and the like as a larger icon over the middle of the enemy NamePlate, "
+		.. "with a glow before it ends. Yours and every other player's.")
 	Range(category, { "general", "ccGlowSeconds" }, "Crowd Control Glow",
-		"How many seconds before your crowd control ends the icon starts to glow and its number turns red.",
+		"How many seconds before the crowd control ends the icon starts to glow and its number turns red.",
 		ns.CC_GLOW_MIN, ns.CC_GLOW_MAX, 1)
 	Toggle(category, { "general", "showPurge" }, "Show Removable Enemy Buffs",
 		"Magic buffs on an enemy that can be dispelled or purged, in a blue frame beside its NamePlate. Only while "
 		.. "you can remove one: with a Felhunter out, or as a Shaman or Priest.")
 	Toggle(category, { "general", "showDR" }, "Show Crowd Control Diminishing Returns",
-		"Left of an enemy player's NamePlate: one icon per kind of crowd control, framed yellow (the next one lasts "
+		"Left of an enemy player's NamePlate: one icon per kind of crowd control, whoever applied it, framed yellow (the next one lasts "
 		.. "half), orange (a quarter) or red (immune), with the seconds until it resets. A grey icon is partly an "
 		.. "estimate. Tracking by Forever Simple DR (Tarolg).")
 	Toggle(category, { "general", "drNPCs" }, "Diminishing Returns On NPCs Too",

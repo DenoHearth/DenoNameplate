@@ -326,7 +326,8 @@ function Plate:EnsureCC()
 	self.cc = cc
 	cc:SetSize(CC_ICON, CC_ICON)
 	cc:SetFrameLevel(self:GetFrameLevel() + 6)
-	cc:AddAuraSlot(CC_KEY, "HARMFUL|PLAYER", {
+	-- anybody's crowd control, not only ours: a mob another player feared is just as feared
+	cc:AddAuraSlot(CC_KEY, "HARMFUL", {
 		candidateFilters = filters,
 		-- Every region is built and handed over here; the button is sealed afterwards.
 		initializeFrame = function(button)

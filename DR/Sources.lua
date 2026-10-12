@@ -49,7 +49,7 @@ local function Now() return GetTime() end
 local function NameKey(unit)
     local name, realm = UnitName(unit)
     -- "Unknown" (the GlobalStrings UNKNOWNOBJECT) means not loaded yet; it is not a name.
-    if not ns.Text(name) or name == _G.UNKNOWNOBJECT then return end
+    if not canaccessvalue(name) or not ns.Text(name) or name == _G.UNKNOWNOBJECT then return end
     if not ns.Public(realm) then return end
     if ns.Text(realm) then name = name .. "-" .. realm end
     return "Name:" .. name
@@ -180,6 +180,9 @@ local function OnNative(unit, info)
     local stats, now = ns.stats, Now()
     stats.native = stats.native + 1
     local guid = ns.ReadEnemy(unit)
+    -- ReadEnemy only hands out readable keys; said again here in the client's own terms,
+    -- because the key is used as a table key below.
+    if not canaccessvalue(guid) then guid = nil end
     if not ns.Public(info) or type(info) ~= "table" then
         stats.nativeOpaque = stats.nativeOpaque + 1
         if ns.nativeMode ~= "public" then ns.nativeMode = "opaque (event only)" end
@@ -370,14 +373,14 @@ local function ScanUnit(unit, now, ids)
     for key, a in pairs(current) do
         if not state.instances[key] then
             state.instances[key] = a
-            local foreign = ns.Text(a.source) and a.source ~= "player" and a.source ~= "pet"
+            local foreign = canaccessvalue(a.source) and ns.Text(a.source) and a.source ~= "player" and a.source ~= "pet"
             local existing = ns.tracker:State(guid, a.category, now, false)
             if baseline and existing and existing.active then
                 -- Already tracked through another token of the same enemy.
                 existing.lastKey = existing.lastKey or key
             elseif not (foreign and not ns.GetSource("group")) then
                 local applied = now
-                if a.expires and a.duration then
+                if canaccessvalue(a.expires) and canaccessvalue(a.duration) and a.expires and a.duration then
                     local start = a.expires - a.duration
                     if start <= now + 0.1 and start >= now - 120 then applied = math.min(start, now) end
                 end
