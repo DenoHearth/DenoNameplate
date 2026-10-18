@@ -54,7 +54,7 @@ ns.defaults = {
 		drNPCs = false,         -- also on hostile NPCs (by the rules for players: a guess there)
 		executeColor = true,    -- enemy health bar turns orange in execute range
 		executePercent = 25,
-		hideWorldNames = true,  -- the game's own floating names on mobs: the NamePlate carries the name
+		hideWorldNames = false, -- the game's own floating names; off: the addon never touches them unless he switches this on
 		showBox = false,
 		minimap = { show = true, angle = 200 },
 		clickable = { width = 0, height = 0, targetScale = 1.2 },
@@ -65,7 +65,7 @@ ns.defaults = {
 ns.defaults.enemy.health.showTextFormat = true
 ns.defaults.enemy.health.width = 112
 ns.defaults.enemy.health.height = 10
-ns.defaults.enemy.health.fontFlags = "MONOCHROMEOUTLINE"
+ns.defaults.enemy.health.fontFlags = "OUTLINE"
 
 local function CopyDefaults(src, dst)
 	for key, value in pairs(src) do
@@ -101,9 +101,20 @@ ns.fontFlags = {
 	NONE = "",
 	OUTLINE = "OUTLINE",
 	THICKOUTLINE = "THICKOUTLINE",
-	MONOCHROME = "MONOCHROME",
-	MONOCHROMEOUTLINE = "MONOCHROME, OUTLINE",
 }
+
+-- Monochrome draws text without smoothing, which looks jagged on a 4K screen (his words,
+-- 2026-10-18: "make all fonts 4k"). Saved monochrome choices become the smooth equivalent.
+local SMOOTH = { MONOCHROME = "NONE", MONOCHROMEOUTLINE = "OUTLINE" }
+
+local function SmoothFonts(db)
+	for _, group in ipairs({ "friendly", "enemy" }) do
+		for _, part in ipairs({ "name", "health", "castBar" }) do
+			local options = db[group] and db[group][part]
+			if options and SMOOTH[options.fontFlags] then options.fontFlags = SMOOTH[options.fontFlags] end
+		end
+	end
+end
 
 local function SharedMedia()
 	return LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -145,7 +156,10 @@ local pendingClientSettings = false
 -- The game writes a large name over every NPC that has no NamePlate (too far, out of sight), which
 -- reads as a second set of names beside the plates. Measured in client 70338: with these values
 -- mobs carry a name only on their NamePlate, and quest givers, vendors and trainers keep theirs.
+-- Player names too (2026-10-18, his picture: large names behind trees, no plate under them).
 local WORLD_NAMES = {
+	UnitNameFriendlyPlayerName = "0",
+	UnitNameEnemyPlayerName = "0",
 	UnitNameNPC = "0",
 	UnitNameHostleNPC = "0",
 	UnitNameFriendlySpecialNPCName = "1",
@@ -155,11 +169,12 @@ local WORLD_NAMES = {
 -- The player's own values are kept in the saved settings and put back when the option is off.
 local function ApplyWorldNames(general)
 	if general.hideWorldNames then
-		if not general.worldNamesBefore then
-			local before = {}
-			for cvar in pairs(WORLD_NAMES) do before[cvar] = C_CVar.GetCVar(cvar) end
-			general.worldNamesBefore = before
+		-- keys added in a later version are kept the first time they are changed
+		local before = general.worldNamesBefore or {}
+		for cvar in pairs(WORLD_NAMES) do
+			if before[cvar] == nil then before[cvar] = C_CVar.GetCVar(cvar) end
 		end
+		general.worldNamesBefore = before
 		for cvar, value in pairs(WORLD_NAMES) do
 			if C_CVar.GetCVar(cvar) ~= value then C_CVar.SetCVar(cvar, value) end
 		end
@@ -267,6 +282,14 @@ loader:SetScript("OnEvent", function(self, event, name)
 		if name ~= ADDON then return end
 		DenoNameplateDB = CopyDefaults(ns.defaults, DenoNameplateDB or {})
 		ns.db = DenoNameplateDB
+		SmoothFonts(ns.db)
+		-- 1.3.4: the addon no longer changes the game's name settings on its own (his words,
+		-- 2026-10-18: "dont ever do those things automatcially"). Once, the old default is
+		-- switched off; ApplyClientSettings then puts his own values back.
+		if not ns.db.general.namesOptIn then
+			ns.db.general.namesOptIn = true
+			ns.db.general.hideWorldNames = false
+		end
 	elseif event == "PLAYER_LOGIN" then
 		-- First login: take the clickable size the client is using as the starting point.
 		local clickable = ns.db.general.clickable

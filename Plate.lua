@@ -428,9 +428,15 @@ function Plate:ApplyOptions()
 		if not self.clickBox then
 			self.clickBox = self:CreateTexture(nil, "BACKGROUND")
 			self.clickBox:SetColorTexture(1, 1, 1, 0.5)
-			self.clickBox:SetAllPoints(self.base)
 		end
-		self.clickBox:Show()
+		-- Forever refuses anchors to the nameplate base frame ("anchor family connection"), which
+		-- is why the box never showed; the client's UnitFrame covers the same click area.
+		-- drawn over the hit frame UpdateHitArea hands to the game: exactly where clicks land
+		local box = self.clickBox
+		if not self.hit then self.hit = CreateFrame("Frame", nil, self) end
+		box:ClearAllPoints()
+		box:SetAllPoints(self.hit)
+		box:Show()
 	elseif self.clickBox then
 		self.clickBox:Hide()
 	end
@@ -465,6 +471,54 @@ end
 ------------------------------------------------------------------------------------------
 -- Unit assignment
 ------------------------------------------------------------------------------------------
+-- Stacking (his report, 2026-10-18: stacking on in the game settings, plates did not stack).
+-- Forever stacks plates by the drawn area of a "stacking bounds" frame; by default that is the
+-- client's own plate, which this addon keeps at alpha 0, so nothing was there to stack by. A
+-- see-through frame over our name, bar and cast bar is given instead (as EllesmereUI does on
+-- Forever: the bounds come from the frame's regions, not its size, hence the texture).
+function Plate:UpdateStackBounds()
+	local base = self.base
+	if not base.SetStackingBoundsFrame then return end
+	if not self.stackBounds then
+		local bounds = CreateFrame("Frame", nil, base)
+		local fill = bounds:CreateTexture(nil, "BACKGROUND")
+		fill:SetColorTexture(0, 0, 0, 0)
+		fill:SetAllPoints()
+		self.stackBounds = bounds
+	end
+	local bounds, options, health = self.stackBounds, self.options, self.health
+	local top = options.name.displayName and (options.name.fontSize + 4) or 0
+	local bottom = (not self.isFriend and options.castBar.enabled) and (options.castBar.height + 2) or 0
+	bounds:ClearAllPoints()
+	bounds:SetPoint("TOPLEFT", health, "TOPLEFT", 0, top)
+	bounds:SetPoint("BOTTOMRIGHT", health, "BOTTOMRIGHT", 0, -bottom)
+	bounds:Show()
+	base:SetStackingBoundsFrame(bounds)
+end
+
+-- Clicks (his report, 2026-10-18: "I have to click on their body"). On Forever the mouse area of
+-- a nameplate is its hit-test points; left alone they stay on the client's own plate, which this
+-- addon hides. A frame the size of the Clickable-Width/Height options, centred on our plate, is
+-- handed over instead (as Plater, Tempus and ShestakUI do on Forever). Allowed for addon code
+-- out of combat and on the tick a unit is first assigned (CanChangeHitTestPoints).
+function Plate:UpdateHitArea()
+	local base = self.base
+	if not self.hit then self.hit = CreateFrame("Frame", nil, self) end
+	local hit, clickable = self.hit, ns.db.general.clickable
+	local width, height = clickable.width, clickable.height
+	if width <= 0 or height <= 0 then
+		width = self.options.health.width
+		height = (self.stackBounds and self.stackBounds:GetHeight()) or 20
+	end
+	hit:ClearAllPoints()
+	hit:SetSize(width, height)
+	hit:SetPoint("CENTER", self.stackBounds or self.health, "CENTER")
+	if base.CanChangeHitTestPoints and base:CanChangeHitTestPoints() then
+		base:ClearAllHitTestPoints()
+		base:SetAllHitTestPoints(hit)
+	end
+end
+
 function Plate:SetUnit(unit)
 	self.unit = unit
 	self:UnregisterAllEvents()
@@ -495,6 +549,8 @@ function Plate:Refresh()
 	if not unit then return end
 	self.isFriend = Plain(UnitIsFriend("player", unit)) and true or false
 	self:ApplyOptions()
+	self:UpdateStackBounds()
+	self:UpdateHitArea()
 	self:UpdateHealth()
 	self:UpdateName()
 	self:UpdateColor()

@@ -57,7 +57,7 @@ Open them with `/dnp`, `/denonameplate`, or the minimap button.
 | Friendly | Name (show, font, size, outline); Health (Name Only, width, height, text format, show text, font, bar texture, class color, background color); Cast Bar (enabled, font, texture, height); Level Indicator (players, NPCs); Objective Icons (show, scale, anchor) |
 | Enemy | The same groups as Friendly, without Name Only |
 
-Defaults: enemy health bar 112 x 10 with percent text in a monochrome outline, target
+Defaults: enemy health bar 112 x 10 with percent text in a smooth outline, target
 scale 1.2, cast bars on enemies only, view distance 60.
 
 ## How it works
