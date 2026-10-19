@@ -38,7 +38,7 @@ around it. Written from scratch for World of Warcraft: Forever and its addon rul
 - **Enemy player colour:** with Use Class Color off, enemy players take a colour you pick.
 - **Clickable area:** width and height of the click box, with a toggle that draws the box
   so you can see it.
-- **View distance:** how far away nameplates show, up to the game's maximum of 60 yards.
+- **View distance:** how far away nameplates show, up to the game's maximum of 40 yards.
 - **Fonts and textures:** a built-in set; LibSharedMedia entries are added when another
   addon provides that library. No library is required.
 - **Minimap button** that opens the options; it can be hidden.
@@ -66,7 +66,7 @@ Friendly and Enemy show the settings of the style those plates wear now: pick Mo
 edit Modern's own set (with an extra Power Bar Height); Standard's set stays as it was.
 
 Defaults: enemy health bar 112 x 10 with percent text in a smooth outline, target
-scale 1.2, cast bars on enemies only, view distance 60.
+scale 1.2, cast bars on enemies only, view distance 40.
 
 ## How it works
 

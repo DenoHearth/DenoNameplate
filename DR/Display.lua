@@ -119,23 +119,26 @@ end
 driver:RegisterEvent("PLAYER_LOGIN")
 driver:SetScript("OnEvent", function(self)
 	self:UnregisterEvent("PLAYER_LOGIN")
-	if not addon.db then return end
-	local saved, problem = DR.LoadSettings(DenoNameplateDB.dr)
-	if not saved then
-		DR.Print("its saved settings could not be read (" .. tostring(problem) .. "); starting from the defaults.")
-		saved = DR.LoadSettings(nil)
-	end
-	DenoNameplateDB.dr = saved
-	DR.db = saved
-	saved.chat = false                    -- no chat lines of its own; the switches are in our options
-	saved.filter = "all"                  -- every kind of crowd control, not only the kinds our class has
-	DR.tracker = DR.NewTracker(function() return DR.db.resetTime end, DR.Learned)
-	DR.OnSettingChanged(function(key)
-		if key == "enabled" and not DR.db.enabled then DR.ClearTracking() end
+	-- next frame, out of the login event: see Core.lua (PLAYER_LOGIN)
+	C_Timer.After(0, function()
+		if not addon.db then return end
+		local saved, problem = DR.LoadSettings(DenoNameplateDB.dr)
+		if not saved then
+			DR.Print("its saved settings could not be read (" .. tostring(problem) .. "); starting from the defaults.")
+			saved = DR.LoadSettings(nil)
+		end
+		DenoNameplateDB.dr = saved
+		DR.db = saved
+		saved.chat = false                    -- no chat lines of its own; the switches are in our options
+		saved.filter = "all"                  -- every kind of crowd control, not only the kinds our class has
+		DR.tracker = DR.NewTracker(function() return DR.db.resetTime end, DR.Learned)
+		DR.OnSettingChanged(function(key)
+			if key == "enabled" and not DR.db.enabled then DR.ClearTracking() end
+		end)
+		started = true
+		local general = addon.db.general
+		saved.enabled, saved.npcs = general.showDR and true or false, general.drNPCs and true or false
+		DR.StartSources()
+		hooksecurefunc(addon, "Refresh", sync)
 	end)
-	started = true
-	local general = addon.db.general
-	saved.enabled, saved.npcs = general.showDR and true or false, general.drNPCs and true or false
-	DR.StartSources()
-	hooksecurefunc(addon, "Refresh", sync)
 end)

@@ -5,24 +5,53 @@ local plates = {}   -- nameplate frame -> our plate
 local active = {}   -- unit token -> our plate
 
 -- The client's UnitFrame has to stay where it is: the click area belongs to it. It is kept
--- at alpha 0 instead of hidden, and a hook holds it there when the client resets the alpha.
+-- at alpha 0 instead of hidden. No SetAlpha hook (until 2026-10-19 there was one): our code
+-- running inside Blizzard's own SetAlpha call tainted that run, and the stance bar after it was
+-- blocked (probe 2026-10-19). The client also raises the alpha from its own code, which no hook
+-- sees (his picture: the client's plate under ours in a fight). So every frame, a held plate
+-- that is not at 0 goes back to 0.
 local suppressed = setmetatable({}, { __mode = "k" })
-local hooked = setmetatable({}, { __mode = "k" })
+
+-- A held plate's own code is switched off too, as EllesmereUI and Tempus do: the client's plate
+-- keeps about 27 unit and 20 other events and runs its Lua all fight long under alpha 0, and
+-- those runs shared their event batch with the stance bar, which was blocked (2026-10-19; gone
+-- without Deno Nameplate). Only the target and soft-target events stay, for the soft-target
+-- icon. The client registers the plate's events again when it hands the plate a new unit.
+local function Silence(unitFrame)
+	if unitFrame:IsProtected() then return end
+	unitFrame:UnregisterAllEvents()
+	unitFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+	unitFrame:RegisterEvent("PLAYER_SOFT_FRIEND_CHANGED")
+	unitFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+	local castBar = unitFrame.castBar or (unitFrame.CastBarsContainer and unitFrame.CastBarsContainer.castBar)
+	if castBar and not castBar:IsForbidden() then castBar:UnregisterAllEvents() end
+end
 
 local function Suppress(unitFrame, on)
-	if not hooked[unitFrame] then
-		hooked[unitFrame] = true
-		local locked = false
-		hooksecurefunc(unitFrame, "SetAlpha", function(frame)
-			if locked or not suppressed[frame] or frame:IsForbidden() then return end
-			locked = true
-			frame:SetAlpha(0)
-			locked = false
-		end)
-	end
 	suppressed[unitFrame] = on
 	unitFrame:SetAlpha(on and 0 or 1)
+	if on then Silence(unitFrame) end
 end
+
+local holder = CreateFrame("Frame")
+-- Under combat restrictions the client takes the methods off its plates (his error, 2026-10-19:
+-- "attempt to call a nil value" every frame), so each one is looked up before it is called.
+local function Usable(frame)
+	if type(frame.CanBeAccessedInContext) ~= "function" then return false end
+	local canAccess = frame:CanBeAccessedInContext()
+	if issecretvalue(canAccess) or not canAccess then return false end
+	return type(frame.IsForbidden) == "function" and not frame:IsForbidden()
+		and type(frame.GetAlpha) == "function" and type(frame.SetAlpha) == "function"
+end
+
+holder:SetScript("OnUpdate", function()
+	for frame, on in pairs(suppressed) do
+		if on and Usable(frame) then
+			local alpha = frame:GetAlpha()
+			if issecretvalue(alpha) or alpha > 0 then frame:SetAlpha(0) end
+		end
+	end
+end)
 
 local function IsTrue(value)
 	return not issecretvalue(value) and value and true or false
@@ -67,6 +96,8 @@ end
 -- Aura rows cannot be built in combat; plates first shown mid-fight get theirs here.
 function ns.AfterCombat()
 	for unit, plate in pairs(active) do
+		plate:UpdateStackBounds()
+		plate:UpdateHitArea()
 		if not plate.auras then
 			plate:EnsureAuras()
 			if plate.auras then

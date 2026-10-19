@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.4.1 — 2026-10-19
+
+- Fixed: "DenoNameplate was blocked from calling StanceButton:SetShown()" in fights (warriors and other classes with a stance bar). The addon now does its login setup a moment after login instead of during it, which tainted the game's own action bars for the whole session
+- Fixed: pressing an ability with no target sometimes gave "forbidden from calling UNKNOWN()"; the click area is only changed while the game allows it, and set again after combat
+- Fixed: the game's own nameplate could show under ours when a mob was engaged. The hidden game plate is now held invisible every frame and its own updates are switched off, as EllesmereUI and Tempus do
+- View Distance tops out at 40 yards, the most Forever allows (a saved 60 becomes 40). The addon only writes the game's settings when the value really changes
+- Diminishing returns no longer switch Blizzard's "diminishing returns on PvP enemies" option on by themselves; if it is off, one chat line per session says where to turn it on
+- Fixed: an "attempt to call a nil value" error every frame in restricted combat
+
 ## v1.4.0 — 2026-10-19
 
 - New Style choice (General): Standard, the familiar compact look and still the default, or Modern: the name above a tall health bar with one-decimal percent, a power bar under it (mana, energy or rage, following druid forms) and the cast bar with spell name, time left and the spell icon. The old Classic Style is gone; a saved Classic choice goes back to Standard

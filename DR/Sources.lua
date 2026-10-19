@@ -288,32 +288,22 @@ function ns.SetBlizzardOption(name, enabled)
     return ns.Bool(ok) and ok
 end
 
--- While the Blizzard DR feed source is on, Forever DR keeps Blizzard's enemy
--- DR option on (the user's decision, 11 October 2026): without it the feed
--- that confirms your CC never arrives. On Forever the option draws nothing
--- else, because the arena frames that carry Blizzard's DR tray do not load
--- for camelot (Blizzard_UnitFrame.toc: CompactArenaFrame is
--- ExcludeLoadGameType camelot). Written out of combat only (PLAYER_REGEN_ENABLED
--- tries again) and a moment after a change, so a click in Blizzard's own
--- panel finishes first; a write that fails is reported once per session.
-local keepQueued, keepFailed = false, false
+-- While the Blizzard DR feed source is on, Forever DR needs Blizzard's enemy DR option on:
+-- without it the feed that confirms your CC never arrives. Until 2026-10-19 it switched the
+-- option on by itself in every session; that write is gone: a game setting written by addon
+-- code made the game's own code run tainted (the stance bar was blocked, probe 2026-10-19),
+-- and his rule is that addons never change game settings by themselves. Now it only says
+-- where to turn it on, once per session, out of combat.
+local keepQueued, keepTold = false, false
 local function KeepBlizzardOn()
     keepQueued = false
     if not (ns.db and ns.db.enabled and ns.GetSource("native")) then return end
     -- On already, or a client without the option.
     if ns.GetBlizzardOption(ns.CVAR_ENABLED) ~= false then return end
-    if InCombatLockdown() then return end
-    local ok = C_CVar.SetCVar(ns.CVAR_ENABLED, "1")
-    if ns.Bool(ok) and ok and ns.GetBlizzardOption(ns.CVAR_ENABLED) then
-        ns.Notice("Turned on Blizzard's 'diminishing returns on PvP enemies' option: Forever DR needs its data. "
-            .. "To leave it alone, turn off Blizzard DR feed under Tracking sources.")
-    elseif not keepFailed then
-        keepFailed = true
-        ns.Print("Could not turn on Blizzard's 'diminishing returns on PvP enemies' option, so Forever DR cannot "
-            .. "confirm your CC. Turn it on in Options -> Gameplay -> Advanced.")
-    end
-    ns.RequestRefresh()
-    if ns.RefreshSettings then ns.RefreshSettings() end
+    if InCombatLockdown() or keepTold then return end
+    keepTold = true
+    ns.Print("Blizzard's 'diminishing returns on PvP enemies' option is off, so Forever DR cannot confirm "
+        .. "your CC. Turn it on in Options -> Gameplay -> Advanced, or turn off Blizzard DR feed under Tracking sources.")
 end
 function ns.KeepBlizzardOn()
     if keepQueued then return end

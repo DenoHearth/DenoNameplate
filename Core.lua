@@ -7,7 +7,7 @@ local ADDON, ns = ...
 ns.WHITE = "Interface\\Buttons\\WHITE8X8"
 
 -- Largest value the client accepts for nameplateMaxDistance (0-60 yards).
-ns.MAX_DISTANCE = 60
+ns.MAX_DISTANCE = 40   -- his finding 2026-10-19: Forever stops at 40, 60 does not work
 
 ------------------------------------------------------------------------------------------
 -- Defaults: target scale 1.2, enemy health bar 112x10 with health text shown in a
@@ -232,11 +232,20 @@ function ns.ApplyClientSettings()
 	end
 	pendingClientSettings = false
 	local general = ns.db.general
-	C_CVar.SetCVar("nameplateMaxDistance", general.maxDistance)
+	-- Written only when it differs: a game setting written by addon code is marked as written
+	-- by it, and the game's own code that reads it afterwards runs tainted (2026-10-19 probe:
+	-- the stance bar tainted seconds after every login, which wrote these every time).
+	general.maxDistance = math.min(tonumber(general.maxDistance) or ns.MAX_DISTANCE, ns.MAX_DISTANCE)
+	if tonumber(C_CVar.GetCVar("nameplateMaxDistance")) ~= general.maxDistance then
+		C_CVar.SetCVar("nameplateMaxDistance", general.maxDistance)
+	end
 	ApplyWorldNames(general)
 	local clickable = general.clickable
 	if clickable.width > 0 and clickable.height > 0 then
-		C_NamePlate.SetNamePlateSize(clickable.width, clickable.height)
+		local width, height = C_NamePlate.GetNamePlateSize()
+		local same = type(width) == "number" and type(height) == "number"
+			and math.floor(width + 0.5) == clickable.width and math.floor(height + 0.5) == clickable.height
+		if not same then C_NamePlate.SetNamePlateSize(clickable.width, clickable.height) end
 	end
 end
 
@@ -333,19 +342,25 @@ loader:SetScript("OnEvent", function(self, event, name)
 			ns.db.general.hideWorldNames = false
 		end
 	elseif event == "PLAYER_LOGIN" then
-		-- First login: take the clickable size the client is using as the starting point.
-		local clickable = ns.db.general.clickable
-		if clickable.width <= 0 or clickable.height <= 0 then
-			local width, height = C_NamePlate.GetNamePlateSize()
-			if type(width) == "number" and type(height) == "number" then
-				clickable.width, clickable.height = math.floor(width + 0.5), math.floor(height + 0.5)
+		-- On the next frame, not in the login event: the client runs its own login callbacks in
+		-- the same run as ours, and our setup work there (options, minimap button, plates)
+		-- tainted them. Blizzard's warrior gamepad button was set up tainted at every login and
+		-- passed it on to the stance bar, which was then blocked in fights (probe 2026-10-19).
+		C_Timer.After(0, function()
+			-- First login: take the clickable size the client is using as the starting point.
+			local clickable = ns.db.general.clickable
+			if clickable.width <= 0 or clickable.height <= 0 then
+				local width, height = C_NamePlate.GetNamePlateSize()
+				if type(width) == "number" and type(height) == "number" then
+					clickable.width, clickable.height = math.floor(width + 0.5), math.floor(height + 0.5)
+				end
 			end
-		end
-		ns.db.general.ccGlowSeconds = ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
-		ns.ApplyClientSettings()
-		ns.StartDriver()
-		ns.BuildOptions()
-		ns.CreateMinimapButton()
+			ns.db.general.ccGlowSeconds = ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
+			ns.ApplyClientSettings()
+			ns.StartDriver()
+			ns.BuildOptions()
+			ns.CreateMinimapButton()
+		end)
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if pendingClientSettings then ns.ApplyClientSettings() end
 		ns.AfterCombat()

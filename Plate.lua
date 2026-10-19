@@ -63,6 +63,15 @@ local function ExecuteCurve(r, g, b, percent)
 	return curve
 end
 
+-- The bar colour from the curve, read in our own code. Never color:GetRGB(): that is Blizzard
+-- code reading a colour our addon made, which taints the whole event run, and Blizzard's own
+-- handlers later in the same run were blocked (taint.log 2026-10-19: StanceButton:SetShown()).
+local function SetExecuteColor(bar, unit, curve)
+	local color = UnitHealthPercent(unit, true, curve)
+	if not canaccessvalue(color) then return end
+	bar:SetStatusBarColor(color.r, color.g, color.b)
+end
+
 local UNIT_EVENTS = {
 	"UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_FLAGS",
 	"UNIT_THREAT_LIST_UPDATE", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
@@ -567,6 +576,8 @@ end
 function Plate:UpdateStackBounds()
 	local base = self.base
 	if not base.SetStackingBoundsFrame then return end
+	-- the client's stacking frame is left alone in a fight, like the hit frame; redone after it
+	if self.stackBounds and InCombatLockdown() then return end
 	if not self.stackBounds then
 		local bounds = CreateFrame("Frame", nil, base)
 		local fill = bounds:CreateTexture(nil, "BACKGROUND")
@@ -604,13 +615,16 @@ function Plate:UpdateHitArea()
 		width = self.barWidth or self.options.health.width
 		height = (self.stackBounds and self.stackBounds:GetHeight()) or 20
 	end
+	-- Our own frame is the click area, as Plater, Tempus and EllesmereUI do: the client's own
+	-- does not cover our plates (his report 1.3.7: "can't click plates"; again 2026-10-19 when
+	-- it was taken out). Once handed over it may only change while the client allows it (a
+	-- change in combat was refused); otherwise it waits for the end of the fight (AfterCombat).
+	if not (base.CanChangeHitTestPoints and base:CanChangeHitTestPoints()) then return end
 	hit:ClearAllPoints()
 	hit:SetSize(width, height)
 	hit:SetPoint("CENTER", self.stackBounds or self.health, "CENTER")
-	if base.CanChangeHitTestPoints and base:CanChangeHitTestPoints() then
-		base:ClearAllHitTestPoints()
-		base:SetAllHitTestPoints(hit)
-	end
+	base:ClearAllHitTestPoints()
+	base:SetAllHitTestPoints(hit)
 end
 
 -- The cast bar sits under the power bar when one is shown, else under the health bar.
@@ -718,7 +732,7 @@ function Plate:UpdateHealth()
 	health:SetMinMaxValues(0, UnitHealthMax(unit))
 	health:SetValue(UnitHealth(unit))
 	if self.executeCurve then
-		health:SetStatusBarColor(UnitHealthPercent(unit, true, self.executeCurve):GetRGB())
+		SetExecuteColor(health, unit, self.executeCurve)
 	end
 
 	local text = health.text
@@ -796,7 +810,7 @@ function Plate:UpdateColor()
 	-- enemies only, and only when the normal colour is plain data a curve can be built from
 	if general.executeColor and not self.isFriend and Plain(r) and Plain(g) and Plain(b) then
 		self.executeCurve = ExecuteCurve(r, g, b, general.executePercent)
-		self.health:SetStatusBarColor(UnitHealthPercent(unit, true, self.executeCurve):GetRGB())
+		SetExecuteColor(self.health, unit, self.executeCurve)
 	else
 		self.health:SetStatusBarColor(r, g, b)
 	end
@@ -936,7 +950,9 @@ function Plate:UpdateRaidIcon()
 	if type(index) == "nil" then
 		self.raidIcon:Hide()
 	else
-		SetRaidTargetIconTexture(self.raidIcon, index)
+		-- what SetRaidTargetIconTexture does, done here: Blizzard code working on our texture
+		-- taints the event run (see SetExecuteColor)
+		self.raidIcon:SetSpriteSheetCell(index, 4, 4)
 		self.raidIcon:Show()
 	end
 end

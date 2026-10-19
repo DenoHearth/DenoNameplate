@@ -241,7 +241,7 @@ function ns.BuildOptions()
 		.. "On: players and mobs are named on their NamePlate only; quest givers, vendors and trainers keep their name. "
 		.. "Off (default): the addon does not touch the game's name settings. Applied out of combat.")
 	Range(category, { "general", "maxDistance" }, "View Distance",
-		"How far away NamePlates are shown, in yards. 60 is the most the game allows.", 20, ns.MAX_DISTANCE, 1)
+		"How far away NamePlates are shown, in yards. 40 is the most the game allows.", 20, ns.MAX_DISTANCE, 1)
 
 	Toggle(category, { "general", "minimap", "show" }, "Show Minimap Button",
 		"Show the Deno Nameplate button on the minimap.")
