@@ -28,6 +28,7 @@ local function UnitGroup(isEnemy)
 			statusBar = "Blizzard2",
 			useClassColor = true,
 			backgroundColor = { 0.2, 0.2, 0.2, 0.85 },
+			playerColor = { 1, 0, 0, 1 },   -- enemy players while useClassColor is off (Enemy page)
 		},
 		castBar = {
 			enabled = isEnemy,
@@ -37,6 +38,7 @@ local function UnitGroup(isEnemy)
 			statusBar = "Blizzard2",
 			height = 10,
 		},
+		power = { height = 5 },   -- Modern Style only
 		levelIndicator = { showPlayerLevel = true, showNPCLevel = isEnemy },
 		objectiveIcons = { showQuestObjectives = true, iconScale = 0.65, anchor = "LEFT" },
 	}
@@ -44,7 +46,9 @@ end
 
 ns.defaults = {
 	general = {
-		useClassicStyle = false,
+		style = "standard",     -- "standard" (his tuned look, the default) or "modern"
+		modernOn = "enemy",     -- which plates take the modern look: "enemy" or "all"
+		modernPower = "all",    -- power bar on the modern look: "all" units or "players" only
 		maxDistance = ns.MAX_DISTANCE,
 		showAuras = true,
 		showCC = true,          -- your own crowd control as a larger icon over the plate
@@ -66,6 +70,40 @@ ns.defaults.enemy.health.showTextFormat = true
 ns.defaults.enemy.health.width = 112
 ns.defaults.enemy.health.height = 10
 ns.defaults.enemy.health.fontFlags = "OUTLINE"
+
+-- The Modern style keeps its own Friendly and Enemy settings (his words, 2026-10-19: "it should only be
+-- the settings for the modern plate that I am adjusting and vice versa"). They start as his picture:
+-- 140 wide, health 13, power 5, cast 8, name 11, spell name 10, health text 8.
+local function ModernGroup(isEnemy)
+	local group = UnitGroup(isEnemy)
+	group.name.fontSize = 11
+	group.health.width = 140
+	group.health.height = 13
+	group.health.showTextFormat = true
+	group.health.fontFlags = "OUTLINE"
+	group.health.statusBar = "Blizzard"
+	group.health.backgroundColor = { 0.07, 0.06, 0.06, 1 }
+	group.castBar.fontSize = 10
+	group.castBar.height = 8
+	group.castBar.statusBar = "Blizzard"
+	return group
+end
+ns.defaults.modern = { friendly = ModernGroup(false), enemy = ModernGroup(true) }
+
+-- Whether a group's plates ("friendly" or "enemy") wear the Modern style now.
+function ns.IsModern(group)
+	local general = ns.db.general
+	return general.style == "modern" and (general.modernOn == "all" or group == "enemy")
+end
+
+-- The settings a group's plates use now, and their defaults: Modern's own, or Standard's.
+function ns.GroupOptions(group)
+	return ns.IsModern(group) and ns.db.modern[group] or ns.db[group]
+end
+
+function ns.GroupDefaults(group)
+	return ns.IsModern(group) and ns.defaults.modern[group] or ns.defaults[group]
+end
 
 local function CopyDefaults(src, dst)
 	for key, value in pairs(src) do
@@ -283,6 +321,10 @@ loader:SetScript("OnEvent", function(self, event, name)
 		DenoNameplateDB = CopyDefaults(ns.defaults, DenoNameplateDB or {})
 		ns.db = DenoNameplateDB
 		SmoothFonts(ns.db)
+		-- 1.4.0: Classic Style replaced by the Style choice (his words, 2026-10-19: "instead of
+		-- classic style, its gonna be called modern style"). A saved Classic choice goes back to Standard.
+		ns.db.general.useClassicStyle = nil
+		if ns.db.general.style ~= "modern" then ns.db.general.style = "standard" end
 		-- 1.3.4: the addon no longer changes the game's name settings on its own (his words,
 		-- 2026-10-18: "dont ever do those things automatcially"). Once, the old default is
 		-- switched off; ApplyClientSettings then puts his own values back.

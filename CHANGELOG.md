@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.0 — 2026-10-19
+
+- New Style choice (General): Standard, the familiar compact look and still the default, or Modern: the name above a tall health bar with one-decimal percent, a power bar under it (mana, energy or rage, following druid forms) and the cast bar with spell name, time left and the spell icon. The old Classic Style is gone; a saved Classic choice goes back to Standard
+- "Modern Style On" puts Modern on enemy plates only (default) or on friendly plates too; "Modern Power Bar" shows the power bar on all units or players only. Mobs without a second resource get no empty bar
+- Modern keeps its own Friendly and Enemy settings: with Modern picked, those pages change only Modern's look (including a new Power Bar Height), and Standard's settings stay as they were, and the other way round
+- Enemy page: with Use Class Color off, enemy players take a colour you pick ("Enemy Player Color", in place of the background colour buttons). Mobs keep their usual colours
+
 ## v1.3.7 — 2026-10-19
 
 - Click a nameplate to target: the plate itself is now the click area (the size set by Clickable Width and Height); before, you had to click the body. "Show Clickable Box" draws exactly that area

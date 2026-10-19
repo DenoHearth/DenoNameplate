@@ -1,7 +1,33 @@
 -- One plate: health bar, name, cast bar, level, classification, raid and quest icons.
 local ADDON, ns = ...
 
-local CLASSIC_WIDTH, CLASSIC_HEIGHT = 110, 12
+-- Modern style (his picture, 2026-10-19). Name above,
+-- left; a tall health bar; under it a thin power bar and the cast bar, every bar in a 1 px black
+-- frame; spell name under the cast bar on the left, time left on the right, spell icon to its right.
+-- Sizes, fonts and textures come from the Modern style's own Friendly/Enemy settings (Core.lua), which
+-- start as the picture. Fixed here: the 1 px gap between bars and the cast colour.
+local MODERN_GAP = 1
+local MODERN_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"     -- the picture's light-to-dark bars
+local MODERN_TRACK = { 0.07, 0.06, 0.06, 1 }
+local MODERN_CAST_COLOR = { 0.9, 0.62, 0.1 }
+
+-- The client has no PowerBarColor table (measured in client 70338), so the plain colours are here.
+local POWER_COLORS = {
+	MANA = { 0, 0, 1 },
+	RAGE = { 1, 0, 0 },
+	FOCUS = { 1, 0.5, 0.25 },
+	ENERGY = { 1, 1, 0 },
+	RUNIC_POWER = { 0, 0.82, 1 },
+}
+
+-- Time left on a cast, one decimal ("0.8"), counted by the client.
+local castTimeFormat
+if C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
+	castTimeFormat = C_StringUtil.CreateNumericRuleFormatter()
+	castTimeFormat:SetBreakpoints({
+		{ threshold = 0, format = "%.1f", step = 0.1, rounding = Enum.NumericRuleFormatRounding.Up },
+	})
+end
 
 local Plate = {}
 
@@ -41,6 +67,9 @@ local UNIT_EVENTS = {
 	"UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_FLAGS",
 	"UNIT_THREAT_LIST_UPDATE", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
 }
+
+-- Only while a plate wears the Modern style.
+local POWER_EVENTS = { "UNIT_POWER_FREQUENT", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" }
 
 local CAST_EVENTS = {
 	UNIT_SPELLCAST_START = "cast",
@@ -157,14 +186,6 @@ function ns.CreatePlate(base)
 	health.background:SetAllPoints()
 	health.background:SetColorTexture(1, 1, 1, 1)
 
-	-- Classic style: the old bordered plate art, which has a pocket for the level on its right.
-	health.classicBorder = health:CreateTexture(nil, "OVERLAY")
-	health.classicBorder:SetTexture("Interface\\Tooltips\\Nameplate-Border")
-	health.classicBorder:SetTexCoord(0, 1, 0.5, 1)
-	health.classicBorder:SetPoint("TOPLEFT", -4, 3)
-	health.classicBorder:SetPoint("BOTTOMRIGHT", 18, -3)
-	health.classicBorder:Hide()
-
 	health.selection = health:CreateTexture(nil, "ARTWORK", nil, 2)
 	health.selection:SetAllPoints()
 	health.selection:SetTexture(ns.statusBars["Blizzard2"])
@@ -186,20 +207,53 @@ function ns.CreatePlate(base)
 	plate.name:SetPoint("BOTTOM", health, "TOP", 0, 4)
 	plate.name:SetWordWrap(false)
 
+	-- Modern style only: mana, energy, rage ... of the unit, whichever it shows now.
+	local power = CreateFrame("StatusBar", nil, plate)
+	plate.power = power
+	power:SetStatusBarTexture(MODERN_TEXTURE)
+	power:Hide()
+	power.border = power:CreateTexture(nil, "BACKGROUND", nil, -8)
+	power.border:SetPoint("TOPLEFT", -1, 1)
+	power.border:SetPoint("BOTTOMRIGHT", 1, -1)
+	power.border:SetColorTexture(1, 1, 1, 1)
+	power.background = power:CreateTexture(nil, "BACKGROUND", nil, -7)
+	power.background:SetAllPoints()
+	power.background:SetColorTexture(MODERN_TRACK[1], MODERN_TRACK[2], MODERN_TRACK[3], MODERN_TRACK[4])
+
 	local cast = CreateFrame("StatusBar", nil, plate)
 	plate.cast = cast
 	cast:SetStatusBarTexture(ns.statusBars["Blizzard2"])
 	cast:SetStatusBarColor(1, 0.7, 0)
 	cast:Hide()
-	cast.background = cast:CreateTexture(nil, "BACKGROUND")
+	cast.border = cast:CreateTexture(nil, "BACKGROUND", nil, -8)
+	cast.border:SetPoint("TOPLEFT", -1, 1)
+	cast.border:SetPoint("BOTTOMRIGHT", 1, -1)
+	cast.border:SetColorTexture(1, 1, 1, 1)
+	cast.border:Hide()
+	cast.background = cast:CreateTexture(nil, "BACKGROUND", nil, -7)
 	cast.background:SetAllPoints()
 	cast.background:SetColorTexture(0.2, 0.2, 0.2, 0.85)
 	cast.text = cast:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	cast.text:SetAllPoints()
 	cast.text:SetWordWrap(false)
+	-- Modern style: seconds left, under the right end of the bar
+	cast.time = cast:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	cast.time:SetPoint("TOPRIGHT", cast, "BOTTOMRIGHT", 0, -2)
+	cast.time:SetJustifyH("RIGHT")
+	cast.time:Hide()
+	if castTimeFormat then
+		cast.timeBinding = C_DurationUtil.CreateDurationTextBinding()
+		cast.timeBinding:SetFormatter(castTimeFormat)
+		cast.timeBinding:SetFontString(cast.time)
+		cast.timeBinding:SetUpdateInterval(0.1)
+		cast.timeBinding:SetEnabled(false)
+	end
 	cast.icon = cast:CreateTexture(nil, "OVERLAY")
-	cast.icon:SetPoint("RIGHT", cast, "LEFT", 0, 0)
 	cast.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	cast.iconBorder = cast:CreateTexture(nil, "ARTWORK")
+	cast.iconBorder:SetPoint("TOPLEFT", cast.icon, "TOPLEFT", -1, 1)
+	cast.iconBorder:SetPoint("BOTTOMRIGHT", cast.icon, "BOTTOMRIGHT", 1, -1)
+	cast.iconBorder:SetColorTexture(0, 0, 0, 1)
+	cast.iconBorder:Hide()
 	cast.shield = cast:CreateTexture(nil, "OVERLAY", nil, 1)
 	cast.shield:SetAtlas("nameplates-InterruptShield")
 	cast.shield:SetPoint("CENTER", cast, "LEFT", 0, 0)
@@ -372,44 +426,78 @@ end
 ------------------------------------------------------------------------------------------
 function Plate:ApplyOptions()
 	local general = ns.db.general
-	local options = self.isFriend and ns.db.friendly or ns.db.enemy
+	local group = self.isFriend and "friendly" or "enemy"
+	local options = ns.GroupOptions(group)
 	self.options = options
-	local classic = general.useClassicStyle
 	local health, cast = self.health, self.cast
+	self.nameOnly = self.isFriend and options.health.nameOnly
+	local modern = ns.IsModern(group) and not self.nameOnly
+	self.modern = modern
 
 	local width, height = options.health.width, options.health.height
-	if classic then width, height = CLASSIC_WIDTH, CLASSIC_HEIGHT end
-	self.nameOnly = self.isFriend and options.health.nameOnly
+	self.barWidth = width
 
 	health:SetSize(width, height)
 	health:SetStatusBarTexture(ns.FetchStatusBar(options.health.statusBar))
 	health:SetShown(not self.nameOnly)
 	local bg = options.health.backgroundColor
 	health.background:SetVertexColor(bg[1], bg[2], bg[3], bg[4])
-	health.border:SetShown(not classic)
-	health.classicBorder:SetShown(classic)
 	ns.SetFont(health.text, options.health.font, options.health.fontSize, options.health.fontFlags)
 
 	self.name:ClearAllPoints()
 	if self.nameOnly then
 		self.name:SetPoint("BOTTOM", health, "BOTTOM", 0, 4)
+	elseif modern then
+		self.name:SetPoint("BOTTOMLEFT", health, "TOPLEFT", 0, 3)
 	else
 		self.name:SetPoint("BOTTOM", health, "TOP", 0, 4)
 	end
+	self.name:SetJustifyH(modern and "LEFT" or "CENTER")
 	self.name:SetShown(options.name.displayName)
 	ns.SetFont(self.name, options.name.font, options.name.fontSize, options.name.fontFlags)
 
-	local castHeight = classic and CLASSIC_HEIGHT or options.castBar.height
-	cast:ClearAllPoints()
-	cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -2)
-	cast:SetSize(math.max(width - castHeight, 10), castHeight)
-	cast:SetStatusBarTexture(ns.FetchStatusBar(options.castBar.statusBar))
-	cast.icon:SetSize(castHeight, castHeight)
-	cast.shield:SetSize(castHeight, castHeight * 1.2)
-	ns.SetFont(cast.text, options.castBar.font, options.castBar.fontSize, options.castBar.fontFlags)
-
-	self.level.icon:SetShown(not classic)
-	self.level.text:SetFontObject(classic and GameFontHighlightSmall or GameFontWhiteTiny2)
+	local castFont = options.castBar
+	ns.SetFont(cast.text, castFont.font, castFont.fontSize, castFont.fontFlags)
+	cast.text:ClearAllPoints()
+	cast.icon:ClearAllPoints()
+	if modern then
+		local castHeight, powerHeight = options.castBar.height, options.power.height
+		cast:SetSize(width, castHeight)
+		cast:SetStatusBarTexture(ns.FetchStatusBar(options.castBar.statusBar))
+		cast:SetStatusBarColor(MODERN_CAST_COLOR[1], MODERN_CAST_COLOR[2], MODERN_CAST_COLOR[3])
+		cast.background:SetColorTexture(MODERN_TRACK[1], MODERN_TRACK[2], MODERN_TRACK[3], MODERN_TRACK[4])
+		cast.border:Show()
+		cast.text:SetPoint("TOPLEFT", cast, "BOTTOMLEFT", 0, -2)
+		cast.text:SetPoint("RIGHT", cast.time, "LEFT", -4, 0)
+		cast.text:SetJustifyH("LEFT")
+		-- time left a little smaller than the spell name, as in his picture
+		ns.SetFont(cast.time, castFont.font, math.max(castFont.fontSize - 2, 6), castFont.fontFlags)
+		-- right of the bars, level with the power and cast bars
+		local iconSize = powerHeight + MODERN_GAP + castHeight + 2
+		cast.icon:SetSize(iconSize, iconSize)
+		cast.icon:SetPoint("BOTTOMLEFT", cast, "BOTTOMRIGHT", 5, 0)
+		cast.iconBorder:Show()
+		cast.shield:SetSize(castHeight, castHeight * 1.2)
+	else
+		local castHeight = options.castBar.height
+		cast:SetSize(math.max(width - castHeight, 10), castHeight)
+		cast:SetStatusBarTexture(ns.FetchStatusBar(options.castBar.statusBar))
+		cast:SetStatusBarColor(1, 0.7, 0)
+		cast.background:SetColorTexture(0.2, 0.2, 0.2, 0.85)
+		cast.border:Hide()
+		cast.text:SetAllPoints()
+		cast.text:SetJustifyH("CENTER")
+		cast.time:Hide()
+		cast.icon:SetSize(castHeight, castHeight)
+		cast.icon:SetPoint("RIGHT", cast, "LEFT", 0, 0)
+		cast.iconBorder:Hide()
+		cast.shield:SetSize(castHeight, castHeight * 1.2)
+	end
+	if modern then
+		self.power:SetSize(width, options.power.height)
+		self.power:SetStatusBarTexture(ns.FetchStatusBar(options.health.statusBar))
+	end
+	self:LayoutBars()
 
 	local anchor = options.objectiveIcons.anchor
 	local size = 32 * options.objectiveIcons.iconScale * 0.5
@@ -489,6 +577,12 @@ function Plate:UpdateStackBounds()
 	local bounds, options, health = self.stackBounds, self.options, self.health
 	local top = options.name.displayName and (options.name.fontSize + 4) or 0
 	local bottom = (not self.isFriend and options.castBar.enabled) and (options.castBar.height + 2) or 0
+	if self.modern then
+		bottom = self.power:IsShown() and (options.power.height + MODERN_GAP) or 0
+		if options.castBar.enabled then
+			bottom = bottom + options.castBar.height + MODERN_GAP + options.castBar.fontSize + 2
+		end
+	end
 	bounds:ClearAllPoints()
 	bounds:SetPoint("TOPLEFT", health, "TOPLEFT", 0, top)
 	bounds:SetPoint("BOTTOMRIGHT", health, "BOTTOMRIGHT", 0, -bottom)
@@ -507,7 +601,7 @@ function Plate:UpdateHitArea()
 	local hit, clickable = self.hit, ns.db.general.clickable
 	local width, height = clickable.width, clickable.height
 	if width <= 0 or height <= 0 then
-		width = self.options.health.width
+		width = self.barWidth or self.options.health.width
 		height = (self.stackBounds and self.stackBounds:GetHeight()) or 20
 	end
 	hit:ClearAllPoints()
@@ -519,11 +613,35 @@ function Plate:UpdateHitArea()
 	end
 end
 
-function Plate:SetUnit(unit)
-	self.unit = unit
+-- The cast bar sits under the power bar when one is shown, else under the health bar.
+function Plate:LayoutBars()
+	local cast, health, power = self.cast, self.health, self.power
+	cast:ClearAllPoints()
+	power:ClearAllPoints()
+	if self.modern then
+		power:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -MODERN_GAP)
+		local above = power:IsShown() and power or health
+		cast:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -MODERN_GAP)
+	else
+		cast:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT", 0, -2)
+	end
+end
+
+-- Power events are only wanted while the plate wears the Modern style.
+function Plate:RegisterEvents()
+	local unit = self.unit
 	self:UnregisterAllEvents()
 	for _, event in ipairs(UNIT_EVENTS) do self:RegisterUnitEvent(event, unit) end
 	for event in pairs(CAST_EVENTS) do self:RegisterUnitEvent(event, unit) end
+	if self.modern then
+		for _, event in ipairs(POWER_EVENTS) do self:RegisterUnitEvent(event, unit) end
+	end
+	self.eventsModern = self.modern
+end
+
+function Plate:SetUnit(unit)
+	self.unit = unit
+	self.eventsModern = nil
 	self:EnsureAuras()
 	if self.auras then self.auras:SetUnit(unit) end
 	if self.cc then self.cc:SetUnit(unit) end
@@ -536,7 +654,8 @@ end
 function Plate:ClearUnit()
 	self.unit = nil
 	self:UnregisterAllEvents()
-	self.cast:Hide()
+	self:StopCast()
+	self.power:Hide()
 	if self.auras then self.auras:SetEnabled(false) end
 	if self.cc then self.cc:SetEnabled(false) end
 	if self.purge then self.purge:SetEnabled(false) end
@@ -549,6 +668,8 @@ function Plate:Refresh()
 	if not unit then return end
 	self.isFriend = Plain(UnitIsFriend("player", unit)) and true or false
 	self:ApplyOptions()
+	if self.eventsModern ~= self.modern then self:RegisterEvents() end
+	self:UpdatePower()
 	self:UpdateStackBounds()
 	self:UpdateHitArea()
 	self:UpdateHealth()
@@ -566,9 +687,15 @@ end
 function Plate:OnEvent(event)
 	local castKind = CAST_EVENTS[event]
 	if castKind then
-		if castKind == "stop" then self.cast:Hide() else self:UpdateCast() end
+		if castKind == "stop" then self:StopCast() else self:UpdateCast() end
 	elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then
 		self:UpdateHealth()
+	elseif event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
+		-- a mob that gains or loses all its power shows or hides its bar
+		if self.isPlayerUnit then self:UpdatePowerValue() else self:UpdatePower() end
+	elseif event == "UNIT_DISPLAYPOWER" then
+		-- a druid changing form: energy, rage or mana
+		self:UpdatePower()
 	elseif event == "UNIT_NAME_UPDATE" then
 		self:UpdateName()
 	elseif event == "UNIT_FACTION" then
@@ -612,7 +739,8 @@ function Plate:UpdateHealth()
 		text:SetFormattedText("%s/%s - %.0f%%", AbbreviateNumbers(UnitHealth(unit)),
 			AbbreviateNumbers(UnitHealthMax(unit)), UnitHealthPercent(unit, true, percentCurve))
 	else
-		text:SetFormattedText("%.0f%%", UnitHealthPercent(unit, true, percentCurve))
+		-- the Modern style shows one decimal, as in his picture: 87.2%
+		text:SetFormattedText(self.modern and "%.1f%%" or "%.0f%%", UnitHealthPercent(unit, true, percentCurve))
 	end
 	text:Show()
 end
@@ -644,6 +772,10 @@ function Plate:UpdateColor()
 	local r, g, b
 	if classColor then
 		r, g, b = classColor.r, classColor.g, classColor.b
+	elseif isPlayer and not self.isFriend and not self.options.health.useClassColor then
+		-- class colour off: his own colour for enemy players (Enemy page, Enemy Player Color)
+		local own = self.options.health.playerColor
+		r, g, b = own[1], own[2], own[3]
 	elseif self:IsTapDenied() then
 		r, g, b = 0.5, 0.5, 0.5
 	elseif self:IsOnThreatList() then
@@ -678,6 +810,9 @@ function Plate:UpdateName()
 	local classColor = isPlayer and self.isFriend and self.options.health.useClassColor and ClassColor(unit)
 	if self:IsTapDenied() or Plain(UnitIsDeadOrGhost(unit)) then
 		name:SetTextColor(0.5, 0.5, 0.5)
+	elseif self.modern then
+		-- white, as in his picture; the bar carries the colour
+		name:SetTextColor(1, 1, 1)
 	elseif classColor then
 		name:SetTextColor(classColor.r, classColor.g, classColor.b)
 	elseif self:IsOnThreatList() then
@@ -707,6 +842,21 @@ function Plate:UpdateAggro()
 	end
 end
 
+-- The frame round the bars: dark, or light on the target. Modern frames its power and cast bars
+-- too, in solid black as in his picture.
+function Plate:SetBorderColor(isTarget)
+	local r, a
+	if isTarget then
+		r, a = 1, self.isFriend and 0.35 or 0.55
+		if self.modern then r, a = 0.8, 1 end
+	else
+		r, a = 0, self.modern and 1 or 0.6
+	end
+	self.health.border:SetVertexColor(r, r, r, a)
+	self.power.border:SetVertexColor(r, r, r, a)
+	self.cast.border:SetVertexColor(r, r, r, a)
+end
+
 function Plate:UpdateTarget()
 	local unit, health = self.unit, self.health
 	if not unit then return end
@@ -715,17 +865,17 @@ function Plate:UpdateTarget()
 		-- Comparison is restricted: the client decides visibility, scale stays neutral.
 		health.selection:Show()
 		health.selection:SetAlphaFromBoolean(isTarget, 0.25, 0)
-		health.border:SetVertexColor(0, 0, 0, 0.6)
+		self:SetBorderColor(false)
 		self:SetScale(1)
 		return
 	end
 	health.selection:SetAlpha(0.25)
 	health.selection:SetShown(isTarget)
 	if isTarget then
-		health.border:SetVertexColor(1, 1, 1, self.isFriend and 0.35 or 0.55)
+		self:SetBorderColor(true)
 		self:SetScale(ns.db.general.clickable.targetScale)
 	else
-		health.border:SetVertexColor(0, 0, 0, 0.6)
+		self:SetBorderColor(false)
 		self:SetScale(1)
 	end
 end
@@ -733,10 +883,9 @@ end
 function Plate:UpdateLevel()
 	local unit, frame = self.unit, self.level
 	local indicator = self.options.levelIndicator
-	local classic = ns.db.general.useClassicStyle
 	local isPlayer = Plain(UnitIsPlayer(unit))
-	local showPlayer = classic or indicator.showPlayerLevel
-	local showNPC = classic or indicator.showNPCLevel
+	local showPlayer = indicator.showPlayerLevel
+	local showNPC = indicator.showNPCLevel
 	local level = Plain(UnitLevel(unit))
 	if self.nameOnly or level == nil or (isPlayer and not showPlayer) or (not isPlayer and not showNPC) then
 		frame:Hide()
@@ -799,10 +948,60 @@ function Plate:UpdateQuestIcon()
 	self.questIcon:SetShown(show and true or false)
 end
 
+-- Which power the unit shows now, and its colour. Hidden where the unit has none.
+function Plate:UpdatePower()
+	local unit, power = self.unit, self.power
+	self.isPlayerUnit = unit and Plain(UnitIsPlayer(unit)) and true or false
+	local wanted = self.modern and unit
+		and (ns.db.general.modernPower ~= "players" or Plain(UnitIsPlayer(unit)))
+	local shown = false
+	if wanted then
+		local _, token, r, g, b = UnitPowerType(unit)
+		token, r, g, b = Plain(token), Plain(r), Plain(g), Plain(b)
+		local color = token and POWER_COLORS[token]
+		if color then
+			power:SetStatusBarColor(color[1], color[2], color[3])
+		elseif r and g and b then
+			power:SetStatusBarColor(r, g, b)
+		else
+			power:SetStatusBarColor(0, 0, 1)
+		end
+		-- A player always has a bar, unless the maximum is plainly 0. A mob gets one only while it
+		-- plainly holds some power: one with nothing in its second bar (his picture, a Young Wolf)
+		-- shows no empty bar. A secret value (in combat) keeps the last decision.
+		local max, current = UnitPowerMax(unit), UnitPower(unit)
+		if Plain(UnitIsPlayer(unit)) then
+			shown = Plain(max) ~= 0
+		elseif issecretvalue(max) or issecretvalue(current) then
+			shown = power:IsShown()
+		else
+			shown = max > 0 and current > 0
+		end
+	end
+	if shown ~= power:IsShown() then
+		power:SetShown(shown)
+		self:LayoutBars()
+	end
+	if shown then self:UpdatePowerValue() end
+end
+
+function Plate:UpdatePowerValue()
+	local unit, power = self.unit, self.power
+	if not unit or not power:IsShown() then return end
+	power:SetMinMaxValues(0, UnitPowerMax(unit))
+	power:SetValue(UnitPower(unit))
+end
+
+function Plate:StopCast()
+	local cast = self.cast
+	cast:Hide()
+	if cast.timeBinding then cast.timeBinding:SetEnabled(false) end
+end
+
 function Plate:UpdateCast()
 	local unit, cast = self.unit, self.cast
 	if not self.options.castBar.enabled or self.nameOnly then
-		cast:Hide()
+		self:StopCast()
 		return
 	end
 	local name, _, texture, _, _, _, _, notInterruptible = UnitCastingInfo(unit)
@@ -818,10 +1017,19 @@ function Plate:UpdateCast()
 		end
 	end
 	if type(name) == "nil" or type(duration) == "nil" then
-		cast:Hide()
+		self:StopCast()
 		return
 	end
 	cast:SetTimerDuration(duration, Enum.StatusBarInterpolation.Immediate, direction)
+	if cast.timeBinding then
+		if self.modern then
+			cast.timeBinding:SetDuration(duration)
+			cast.timeBinding:SetEnabled(true)
+		else
+			cast.timeBinding:SetEnabled(false)
+		end
+	end
+	cast.time:SetShown(self.modern and cast.timeBinding ~= nil)
 	cast.text:SetText(name)
 	cast.icon:SetTexture(texture)
 	if type(notInterruptible) == "nil" then

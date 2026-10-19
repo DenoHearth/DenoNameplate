@@ -11,6 +11,10 @@ local HEALTH_FORMATS = {
 
 local QUEST_ICON_ANCHORS = { { "TOP", "Top" }, { "LEFT", "Left" }, { "RIGHT", "Right" } }
 
+local STYLES = { { "standard", "Standard" }, { "modern", "Modern" } }
+local MODERN_ON = { { "enemy", "Enemy NamePlates" }, { "all", "Enemy And Friendly NamePlates" } }
+local MODERN_POWER = { { "all", "All Units" }, { "players", "Players Only" } }
+
 local FONT_FLAGS = {
 	{ "NONE", "None" },
 	{ "OUTLINE", "Outline" },
@@ -33,10 +37,51 @@ local function Resolve(path)
 	return tbl, key, defaults[key], "DenoNameplate_" .. table.concat(path, "_")
 end
 
+-- Friendly and Enemy settings belong to the style those plates wear now: Standard's or Modern's own.
+-- So those controls read and write through the current set, and re-read it when the style changes.
+local groupSettings = {}
+
+local function GroupRegister(category, path, varType, label)
+	local group = path[1]
+	local function Walk(root)
+		local tbl = root
+		for i = 2, #path - 1 do tbl = tbl[path[i]] end
+		return tbl, path[#path]
+	end
+	local variable = "DenoNameplate_" .. table.concat(path, "_")
+	local setting = Settings.RegisterProxySetting(category, variable, varType, label,
+		function()
+			local tbl, key = Walk(ns.GroupDefaults(group))
+			return tbl[key]
+		end,
+		function()
+			local tbl, key = Walk(ns.GroupOptions(group))
+			return tbl[key]
+		end,
+		function(value)
+			local tbl, key = Walk(ns.GroupOptions(group))
+			tbl[key] = value
+		end)
+	Settings.SetOnValueChangedCallback(variable, ns.Refresh)
+	groupSettings[#groupSettings + 1] = setting
+	return setting
+end
+
+-- After a style change: the Friendly and Enemy pages show the other set's values.
+local function ReloadGroupSettings()
+	for _, setting in ipairs(groupSettings) do setting:NotifyUpdate() end
+end
+
 local function Register(category, path, varType, label)
+	if path[1] == "friendly" or path[1] == "enemy" then
+		return GroupRegister(category, path, varType, label)
+	end
 	local tbl, key, default, variable = Resolve(path)
 	local setting = Settings.RegisterAddOnSetting(category, variable, key, tbl, varType, label, default)
 	Settings.SetOnValueChangedCallback(variable, ns.Refresh)
+	if key == "style" or key == "modernOn" then
+		Settings.SetOnValueChangedCallback(variable, ReloadGroupSettings)
+	end
 	return setting
 end
 
@@ -70,10 +115,11 @@ local function FontControls(category, group, prefix)
 	Select(category, { group, prefix, "fontFlags" }, "Font Outline", nil, FONT_FLAGS)
 end
 
--- Background colour: the Settings API has no colour control, so a button opens the picker.
-local function ColorButtons(layout, group)
+-- A colour: the Settings API has no colour control, so a button opens the picker. `key` is the
+-- colour's name under health: backgroundColor, or playerColor (his own enemy player colour).
+local function ColorButtons(layout, group, key, label, tooltip)
 	local function Open()
-		local color = ns.db[group].health.backgroundColor
+		local color = ns.GroupOptions(group).health[key]
 		local previous = { color[1], color[2], color[3], color[4] }
 		local function Apply()
 			local r, g, b = ColorPickerFrame:GetColorRGB()
@@ -91,13 +137,12 @@ local function ColorButtons(layout, group)
 		})
 	end
 	local function Reset()
-		local color, default = ns.db[group].health.backgroundColor, ns.defaults[group].health.backgroundColor
+		local color, default = ns.GroupOptions(group).health[key], ns.GroupDefaults(group).health[key]
 		color[1], color[2], color[3], color[4] = default[1], default[2], default[3], default[4]
 		ns.UpdateAllPlates()
 	end
-	layout:AddInitializer(CreateSettingsButtonInitializer("Background Color", "Choose", Open,
-		"Colour behind the health bar.", true))
-	layout:AddInitializer(CreateSettingsButtonInitializer("Reset Background Color", "Reset", Reset, nil, true))
+	layout:AddInitializer(CreateSettingsButtonInitializer(label, "Choose", Open, tooltip, true))
+	layout:AddInitializer(CreateSettingsButtonInitializer("Reset " .. label, "Reset", Reset, nil, true))
 end
 
 local function BuildUnitPage(parent, group, title)
@@ -114,10 +159,10 @@ local function BuildUnitPage(parent, group, title)
 			"Only show the name on the NamePlate (no health bar).")
 	end
 	Range(category, { group, "health", "width" }, "Bar Width",
-		"Sets the width of the NamePlate health bar. This will not change the clickable area. Ignored in Classic Style.",
+		"Sets the width of the NamePlate health bar. This will not change the clickable area.",
 		40, 200, 1)
 	Range(category, { group, "health", "height" }, "Bar Height",
-		"Sets the height of the NamePlate health bar. This will not change the clickable area. Ignored in Classic Style.",
+		"Sets the height of the NamePlate health bar. This will not change the clickable area.",
 		4, 60, 1)
 	Select(category, { group, "health", "textFormat" }, "Text Format", nil, HEALTH_FORMATS)
 	Toggle(category, { group, "health", "showTextFormat" }, "Show Health Text")
@@ -125,19 +170,28 @@ local function BuildUnitPage(parent, group, title)
 	Select(category, { group, "health", "statusBar" }, "Bar Texture", nil,
 		function() return MediaChoices("statusbar") end)
 	Toggle(category, { group, "health", "useClassColor" }, "Use Class Color",
-		"Use the player's class color for the health bar.")
-	ColorButtons(layout, group)
+		isFriendly and "Use the player's class color for the health bar."
+		or "Use the player's class color for the health bar. Off: enemy players take the Enemy Player Color below.")
+	-- his ask, 2026-10-19: on the Enemy page the background colour button gives way to his own player colour
+	if isFriendly then
+		ColorButtons(layout, group, "backgroundColor", "Background Color", "Colour behind the health bar.")
+	else
+		ColorButtons(layout, group, "playerColor", "Enemy Player Color",
+			"Health bar colour of enemy players while Use Class Color is off. Mobs keep their usual colours.")
+	end
 
 	Header(layout, "Cast Bar")
 	Toggle(category, { group, "castBar", "enabled" }, "Enabled")
 	FontControls(category, group, "castBar")
 	Select(category, { group, "castBar", "statusBar" }, "Bar Texture", nil,
 		function() return MediaChoices("statusbar") end)
-	Range(category, { group, "castBar", "height" }, "Height", "Ignored in Classic Style.", 4, 32, 1)
+	Range(category, { group, "castBar", "height" }, "Height", nil, 4, 32, 1)
+	Range(category, { group, "power", "height" }, "Power Bar Height",
+		"Height of the power bar (mana, energy, rage). Modern Style only.", 2, 20, 1)
 
 	Header(layout, "Level Indicator")
-	Toggle(category, { group, "levelIndicator", "showPlayerLevel" }, "Player Level", "Always shown in Classic Style.")
-	Toggle(category, { group, "levelIndicator", "showNPCLevel" }, "NPC Level", "Always shown in Classic Style.")
+	Toggle(category, { group, "levelIndicator", "showPlayerLevel" }, "Player Level")
+	Toggle(category, { group, "levelIndicator", "showNPCLevel" }, "NPC Level")
 
 	Header(layout, "Objective Icons")
 	Toggle(category, { group, "objectiveIcons", "showQuestObjectives" }, "Show Quest Objectives",
@@ -152,7 +206,14 @@ function ns.BuildOptions()
 	ns.category = category
 
 	Header(layout, "General")
-	Toggle(category, { "general", "useClassicStyle" }, "Classic Style", "Use classic style textures.")
+	Select(category, { "general", "style" }, "Style",
+		"Standard: the compact Deno Nameplate look. Modern: name above a tall health bar with one-decimal percent, "
+		.. "a power bar (mana, energy, rage; it follows form changes) and the cast bar with spell name, time left and icon.",
+		STYLES)
+	Select(category, { "general", "modernOn" }, "Modern Style On",
+		"Which NamePlates take the Modern look. The others keep the Standard look.", MODERN_ON)
+	Select(category, { "general", "modernPower" }, "Modern Power Bar",
+		"Which units show a power bar in the Modern look. Units without power never show one.", MODERN_POWER)
 	Toggle(category, { "general", "showAuras" }, "Show My Debuffs",
 		"Show your debuffs above enemy NamePlates. Takes effect on plates created after the change.")
 	Toggle(category, { "general", "showCC" }, "Show Crowd Control",

@@ -30,7 +30,12 @@ around it. Written from scratch for World of Warcraft: Forever and its addon rul
 - **Removable enemy buffs:** magic buffs that can be dispelled, purged or stolen, in a blue
   frame beside the plate.
 - **Target:** a larger plate (adjustable scale) with a highlight and a bright border.
-- **Classic style:** an optional bordered look with a fixed size.
+- **Two styles:** Standard (the compact look, default) or Modern: name above a tall health
+  bar with one-decimal percent, a power bar (mana, energy, rage; it follows druid forms; mobs
+  without power get none) and the cast bar with spell name, time left and the spell icon.
+  Modern can be on enemy plates only (default) or on friendly plates too, and it keeps its
+  own Friendly and Enemy settings, separate from Standard's.
+- **Enemy player colour:** with Use Class Color off, enemy players take a colour you pick.
 - **Clickable area:** width and height of the click box, with a toggle that draws the box
   so you can see it.
 - **View distance:** how far away nameplates show, up to the game's maximum of 60 yards.
@@ -53,9 +58,12 @@ Open them with `/dnp`, `/denonameplate`, or the minimap button.
 
 | Page | Settings |
 |---|---|
-| General | Classic Style, Show My Debuffs, View Distance, Show Minimap Button, Clickable Height and Width, Show Clickable Box, Target Scale |
+| General | Style (Standard or Modern), Modern Style On, Modern Power Bar, Show My Debuffs, View Distance, Show Minimap Button, Clickable Height and Width, Show Clickable Box, Target Scale |
 | Friendly | Name (show, font, size, outline); Health (Name Only, width, height, text format, show text, font, bar texture, class color, background color); Cast Bar (enabled, font, texture, height); Level Indicator (players, NPCs); Objective Icons (show, scale, anchor) |
-| Enemy | The same groups as Friendly, without Name Only |
+| Enemy | The same groups as Friendly, without Name Only, and Enemy Player Color in place of Background Color |
+
+Friendly and Enemy show the settings of the style those plates wear now: pick Modern and they
+edit Modern's own set (with an extra Power Bar Height); Standard's set stays as it was.
 
 Defaults: enemy health bar 112 x 10 with percent text in a smooth outline, target
 scale 1.2, cast bars on enemies only, view distance 60.
