@@ -100,12 +100,12 @@ end
 function DR.RequestRefresh() queued = true end
 
 local driver = CreateFrame("Frame")
-local function tick(_, elapsed)
+driver:SetScript("OnUpdate", function(_, elapsed)
 	since = since + elapsed
 	if not queued or since < 0.1 then return end
 	since, queued = 0, false
 	if refresh() then queued = true end       -- the seconds on the icons keep counting
-end
+end)
 
 -- Our two switches (Options: General) are the tracker's "enabled" and "also NPCs".
 local function sync()
@@ -117,36 +117,28 @@ local function sync()
 end
 
 driver:RegisterEvent("PLAYER_LOGIN")
-driver:SetScript("OnEvent", addon.Watched("DR display", function(self)
+driver:SetScript("OnEvent", function(self)
 	self:UnregisterEvent("PLAYER_LOGIN")
-	-- next frame, out of the login event: see Core.lua (PLAYER_LOGIN); in the step test
-	-- (TaintWatch.lua) only when its step comes
-	C_Timer.After(0, addon.Watched("DR login timer", function()
-		if addon.TestAllows("dr") then addon.StartDR() end
-	end))
-end))
-
--- The tracking, its settings and its every-frame display, started once.
-function addon.StartDR()
-	if addon.drRunning or not addon.db then return end
-	addon.drRunning = true
-	local saved, problem = DR.LoadSettings(DenoNameplateDB.dr)
-	if not saved then
-		DR.Print("its saved settings could not be read (" .. tostring(problem) .. "); starting from the defaults.")
-		saved = DR.LoadSettings(nil)
-	end
-	DenoNameplateDB.dr = saved
-	DR.db = saved
-	saved.chat = false                    -- no chat lines of its own; the switches are in our options
-	saved.filter = "all"                  -- every kind of crowd control, not only the kinds our class has
-	DR.tracker = DR.NewTracker(function() return DR.db.resetTime end, DR.Learned)
-	DR.OnSettingChanged(function(key)
-		if key == "enabled" and not DR.db.enabled then DR.ClearTracking() end
+	-- next frame, out of the login event: see Core.lua (PLAYER_LOGIN)
+	C_Timer.After(0, function()
+		if not addon.db then return end
+		local saved, problem = DR.LoadSettings(DenoNameplateDB.dr)
+		if not saved then
+			DR.Print("its saved settings could not be read (" .. tostring(problem) .. "); starting from the defaults.")
+			saved = DR.LoadSettings(nil)
+		end
+		DenoNameplateDB.dr = saved
+		DR.db = saved
+		saved.chat = false                    -- no chat lines of its own; the switches are in our options
+		saved.filter = "all"                  -- every kind of crowd control, not only the kinds our class has
+		DR.tracker = DR.NewTracker(function() return DR.db.resetTime end, DR.Learned)
+		DR.OnSettingChanged(function(key)
+			if key == "enabled" and not DR.db.enabled then DR.ClearTracking() end
+		end)
+		started = true
+		local general = addon.db.general
+		saved.enabled, saved.npcs = general.showDR and true or false, general.drNPCs and true or false
+		DR.StartSources()
+		hooksecurefunc(addon, "Refresh", sync)
 	end)
-	started = true
-	local general = addon.db.general
-	saved.enabled, saved.npcs = general.showDR and true or false, general.drNPCs and true or false
-	hooksecurefunc(addon, "Refresh", addon.Watched("DR sync", sync))
-	DR.StartSources()
-	driver:SetScript("OnUpdate", addon.Watched("DR display OnUpdate", tick))
-end
+end)

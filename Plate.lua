@@ -20,8 +20,14 @@ local POWER_COLORS = {
 	RUNIC_POWER = { 0, 0.82, 1 },
 }
 
--- Time left on a cast, one decimal ("0.8"), counted by the client. Made in ns.MakePlateObjects.
+-- Time left on a cast, one decimal ("0.8"), counted by the client.
 local castTimeFormat
+if C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
+	castTimeFormat = C_StringUtil.CreateNumericRuleFormatter()
+	castTimeFormat:SetBreakpoints({
+		{ threshold = 0, format = "%.1f", step = 0.1, rounding = Enum.NumericRuleFormatRounding.Up },
+	})
+end
 
 local Plate = {}
 
@@ -32,13 +38,16 @@ local function Plain(value)
 end
 
 -- Health percent arrives as 0-1; this curve scales it to 0-100 inside the client.
-local percentCurve
+local percentCurve = C_CurveUtil.CreateCurve()
+percentCurve:SetType(Enum.LuaCurveType.Linear)
+percentCurve:AddPoint(0, 0)
+percentCurve:AddPoint(1, 100)
 
 -- Execute range: under a chosen health percent an enemy bar turns orange. Health is hidden
 -- from addon code, so the client picks the colour: a step curve that holds the execute
 -- colour below the threshold and the plate's normal colour above it. One curve per normal
 -- colour and threshold, kept for reuse.
-local EXECUTE_COLOR
+local EXECUTE_COLOR = CreateColor(1, 0.55, 0.1, 1)
 local executeCurves = {}
 
 local function ExecuteCurve(r, g, b, percent)
@@ -103,13 +112,42 @@ local CC_GLOW_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 local CC_GLOW_COLUMNS, CC_GLOW_ROWS, CC_GLOW_FRAMES = 5, 6, 30   -- as in ActionButtonSpellAlerts.xml
 ns.CC_GLOW_MIN, ns.CC_GLOW_MAX = 1, 10
 
-local ccTimeColor, ccTimeFormat, ccGlowFormat, ccGlowBinding, ccGlowFrames
+local ccTimeColor = C_CurveUtil.CreateColorCurve()
+ccTimeColor:SetType(Enum.LuaCurveType.Step)
+
+local ccTimeFormat, ccGlowFormat, ccGlowBinding, ccGlowFrames
+if C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
+	-- whole seconds, rounded up
+	ccTimeFormat = C_StringUtil.CreateNumericRuleFormatter()
+	ccTimeFormat:SetBreakpoints({
+		{ threshold = 0, format = "%d", step = 1, rounding = Enum.NumericRuleFormatRounding.Up },
+	})
+	local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(CC_GLOW_ATLAS)
+	if info then
+		-- the atlas entry in pixels of its file
+		local fileWidth = info.width / (info.rightTexCoord - info.leftTexCoord)
+		local fileHeight = info.height / (info.bottomTexCoord - info.topTexCoord)
+		local left, top = info.leftTexCoord * fileWidth, info.topTexCoord * fileHeight
+		local cellWidth, cellHeight = info.width / CC_GLOW_COLUMNS, info.height / CC_GLOW_ROWS
+		local file = info.file or info.filename
+		ccGlowFrames = {}
+		for frame = 0, CC_GLOW_FRAMES - 1 do
+			local x = left + (frame % CC_GLOW_COLUMNS) * cellWidth
+			local y = top + math.floor(frame / CC_GLOW_COLUMNS) * cellHeight
+			ccGlowFrames[frame] = string.format("|T%s:%d:%d:0:0:%d:%d:%d:%d:%d:%d|t", tostring(file), CC_GLOW_SIZE,
+				CC_GLOW_SIZE, fileWidth + 0.5, fileHeight + 0.5, x + 0.5, x + cellWidth + 0.5, y + 0.5, y + cellHeight + 0.5)
+		end
+		ccGlowFormat = C_StringUtil.CreateNumericRuleFormatter()
+		-- redrawn every frame of the animation
+		ccGlowBinding = C_DurationUtil.CreateDurationTextBinding()
+		ccGlowBinding:SetUpdateInterval(1 / CC_GLOW_FRAMES)
+	end
+end
 
 -- How many seconds before the end the glow starts and the number turns red. Every plate
 -- shares the formatter and the curve, so a change shows at once.
 function ns.SetCCGlowSeconds(seconds)
 	seconds = math.max(ns.CC_GLOW_MIN, math.min(ns.CC_GLOW_MAX, math.floor(tonumber(seconds) or 3)))
-	if not ccTimeColor then return seconds end
 	ccTimeColor:ClearPoints()
 	ccTimeColor:AddPoint(0, CreateColor(1, 0.25, 0.25, 1))
 	ccTimeColor:AddPoint(seconds, CreateColor(1, 0.85, 0.2, 1))
@@ -126,54 +164,7 @@ function ns.SetCCGlowSeconds(seconds)
 	end
 	return seconds
 end
-
--- The client objects every plate shares: number formats, colour curves, the glow's binding. Made
--- once, when the file loads (in the step test, when their step comes).
-function ns.MakePlateObjects()
-	if percentCurve then return end
-	if C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
-		castTimeFormat = C_StringUtil.CreateNumericRuleFormatter()
-		castTimeFormat:SetBreakpoints({
-			{ threshold = 0, format = "%.1f", step = 0.1, rounding = Enum.NumericRuleFormatRounding.Up },
-		})
-	end
-	percentCurve = C_CurveUtil.CreateCurve()
-	percentCurve:SetType(Enum.LuaCurveType.Linear)
-	percentCurve:AddPoint(0, 0)
-	percentCurve:AddPoint(1, 100)
-	EXECUTE_COLOR = CreateColor(1, 0.55, 0.1, 1)
-	ccTimeColor = C_CurveUtil.CreateColorCurve()
-	ccTimeColor:SetType(Enum.LuaCurveType.Step)
-	if C_StringUtil and C_StringUtil.CreateNumericRuleFormatter then
-		-- whole seconds, rounded up
-		ccTimeFormat = C_StringUtil.CreateNumericRuleFormatter()
-		ccTimeFormat:SetBreakpoints({
-			{ threshold = 0, format = "%d", step = 1, rounding = Enum.NumericRuleFormatRounding.Up },
-		})
-		local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(CC_GLOW_ATLAS)
-		if info then
-			-- the atlas entry in pixels of its file
-			local fileWidth = info.width / (info.rightTexCoord - info.leftTexCoord)
-			local fileHeight = info.height / (info.bottomTexCoord - info.topTexCoord)
-			local left, top = info.leftTexCoord * fileWidth, info.topTexCoord * fileHeight
-			local cellWidth, cellHeight = info.width / CC_GLOW_COLUMNS, info.height / CC_GLOW_ROWS
-			local file = info.file or info.filename
-			ccGlowFrames = {}
-			for frame = 0, CC_GLOW_FRAMES - 1 do
-				local x = left + (frame % CC_GLOW_COLUMNS) * cellWidth
-				local y = top + math.floor(frame / CC_GLOW_COLUMNS) * cellHeight
-				ccGlowFrames[frame] = string.format("|T%s:%d:%d:0:0:%d:%d:%d:%d:%d:%d|t", tostring(file), CC_GLOW_SIZE,
-					CC_GLOW_SIZE, fileWidth + 0.5, fileHeight + 0.5, x + 0.5, x + cellWidth + 0.5, y + 0.5, y + cellHeight + 0.5)
-			end
-			ccGlowFormat = C_StringUtil.CreateNumericRuleFormatter()
-			-- redrawn every frame of the animation
-			ccGlowBinding = C_DurationUtil.CreateDurationTextBinding()
-			ccGlowBinding:SetUpdateInterval(1 / CC_GLOW_FRAMES)
-		end
-	end
-	ns.SetCCGlowSeconds(ns.db and ns.db.general.ccGlowSeconds or 3)
-end
-if ns.TestAllows("objects") then ns.MakePlateObjects() end
+ns.SetCCGlowSeconds(3)
 
 ------------------------------------------------------------------------------------------
 -- Construction
@@ -361,15 +352,14 @@ function ns.CreatePlate(base)
 	plate.questIcon:SetAtlas("QuestNormal")
 	plate.questIcon:Hide()
 
-	plate:SetScript("OnEvent", ns.Watched("Plate", plate.OnEvent))
+	plate:SetScript("OnEvent", plate.OnEvent)
 	return plate
 end
 
 -- The debuff row is drawn by Blizzard's aura container: addon code may not read auras in
 -- combat. The container has to be built out of combat.
 function Plate:EnsureAuras()
-	if self.auras or not ns.db.general.showAuras or InCombatLockdown() or not HasAuraContainer()
-		or not ns.TestAllows("auras") then
+	if self.auras or not ns.db.general.showAuras or InCombatLockdown() or not HasAuraContainer() then
 		return
 	end
 	local container = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
@@ -387,7 +377,7 @@ function Plate:EnsureAuras()
 		sortDirection = AuraContainerSortDirection.Normal,
 		layout = { elementWidth = 20, elementHeight = 14, elementSpacing = 4, lineSpacing = 4 },
 		-- Every region is built and handed over here; the button is sealed afterwards.
-		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
+		initializeFrame = function(button)
 			button:SetSize(20, 14)
 			local border = button:CreateTexture(nil, "BACKGROUND")
 			border:SetAllPoints()
@@ -406,7 +396,7 @@ function Plate:EnsureAuras()
 			time:SetFont(fontFile, fontHeight, "OUTLINE")
 			time:SetPoint("CENTER", 0, 1)
 			button:SetDurationText(time, {})
-		end),
+		end,
 	})
 	self:EnsureCC()
 	self:EnsurePurge()
@@ -428,7 +418,7 @@ function Plate:EnsurePurge()
 		sortMethod = AuraContainerSortMethod.Expiration,
 		sortDirection = AuraContainerSortDirection.Normal,
 		layout = { elementWidth = 18, elementHeight = 18, elementSpacing = 4, lineSpacing = 4 },
-		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
+		initializeFrame = function(button)
 			button:SetSize(18, 18)
 			local border = button:CreateTexture(nil, "BACKGROUND")
 			border:SetAllPoints()
@@ -438,7 +428,7 @@ function Plate:EnsurePurge()
 			icon:SetPoint("BOTTOMRIGHT", -1, 1)
 			icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 			button:SetIcon(icon)
-		end),
+		end,
 	})
 end
 
@@ -454,7 +444,7 @@ function Plate:EnsureCC()
 	cc:AddAuraSlot(CC_KEY, "HARMFUL", {
 		candidateFilters = filters,
 		-- Every region is built and handed over here; the button is sealed afterwards.
-		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
+		initializeFrame = function(button)
 			button:SetSize(CC_ICON, CC_ICON)
 			button:SetPoint("CENTER", cc, "CENTER")
 			local border = button:CreateTexture(nil, "BACKGROUND")
@@ -471,7 +461,7 @@ function Plate:EnsureCC()
 				textFormatter = ccTimeFormat,
 				textColor = { curve = ccTimeColor, property = Enum.DurationTextBindingProperty.RemainingDuration },
 			})
-		end),
+		end,
 	})
 	if not ccGlowFormat then return end
 	local glow = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
@@ -481,13 +471,13 @@ function Plate:EnsureCC()
 	glow:SetFrameLevel(self:GetFrameLevel() + 10)
 	glow:AddAuraSlot(CC_KEY, "HARMFUL|PLAYER", {
 		candidateFilters = filters,
-		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
+		initializeFrame = function(button)
 			button:SetSize(CC_ICON, CC_ICON)
 			button:SetPoint("CENTER", glow, "CENTER")
 			local text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 			text:SetPoint("CENTER", 0, 0)
 			button:SetDurationText(text, { binding = ccGlowBinding, textFormatter = ccGlowFormat })
-		end),
+		end,
 	})
 end
 
@@ -637,7 +627,7 @@ end
 -- Forever: the bounds come from the frame's regions, not its size, hence the texture).
 function Plate:UpdateStackBounds()
 	local base = self.base
-	if not base.SetStackingBoundsFrame or not ns.TestAllows("hitarea") then return end
+	if not base.SetStackingBoundsFrame then return end
 	-- the client's stacking frame is left alone in a fight, like the hit frame; redone after it
 	if self.stackBounds and InCombatLockdown() then return end
 	if not self.stackBounds then
@@ -669,7 +659,6 @@ end
 -- handed over instead (as Plater, Tempus and ShestakUI do on Forever). Allowed for addon code
 -- out of combat and on the tick a unit is first assigned (CanChangeHitTestPoints).
 function Plate:UpdateHitArea()
-	if not ns.TestAllows("hitarea") then return end
 	local base = self.base
 	if not self.hit then self.hit = CreateFrame("Frame", nil, self) end
 	local hit, clickable = self.hit, ns.db.general.clickable

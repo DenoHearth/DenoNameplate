@@ -49,28 +49,34 @@ local function GroupRegister(category, path, varType, label)
 		return tbl, path[#path]
 	end
 	local variable = "DenoNameplate_" .. table.concat(path, "_")
-	local setting = Settings.RegisterProxySetting(category, variable, varType, label,
-		ns.Watched("Options default", function()
-			local tbl, key = Walk(ns.GroupDefaults(group))
-			return tbl[key]
-		end),
-		ns.Watched("Options get", function()
+	-- The default is a plain value, never a function. Blizzard's ProxySettingMixin:Init checks a
+	-- function default by calling it directly inside the secure registration
+	-- (Blizzard_Setting.lua, ErrorIfInvalidSettingArguments), so our code ran there and everything
+	-- written after it was ours, the setting's entry in SettingsPanel.settings too. A mouse click on
+	-- a spell button walks that table (ActionBarActionButtonMixin:OnClick -> Settings.GetValue
+	-- ("lockActionBars") -> SettingsPanel:GetSetting), ran tainted, and UseAction was refused:
+	-- "forbidden from calling UNKNOWN()" on every mouse click, never on a key (his error,
+	-- 2026-10-21). Plater, which registers no settings, never had it. The value is the default of
+	-- the style worn when the options were built.
+	local defaultTbl, defaultKey = Walk(ns.GroupDefaults(group))
+	local setting = Settings.RegisterProxySetting(category, variable, varType, label, defaultTbl[defaultKey],
+		function()
 			local tbl, key = Walk(ns.GroupOptions(group))
 			return tbl[key]
-		end),
-		ns.Watched("Options set", function(value)
+		end,
+		function(value)
 			local tbl, key = Walk(ns.GroupOptions(group))
 			tbl[key] = value
-		end))
+		end)
 	Settings.SetOnValueChangedCallback(variable, ns.Refresh)
 	groupSettings[#groupSettings + 1] = setting
 	return setting
 end
 
 -- After a style change: the Friendly and Enemy pages show the other set's values.
-local ReloadGroupSettings = ns.Watched("Options reload", function()
+local function ReloadGroupSettings()
 	for _, setting in ipairs(groupSettings) do setting:NotifyUpdate() end
-end)
+end
 
 local function Register(category, path, varType, label)
 	if path[1] == "friendly" or path[1] == "enemy" then
@@ -96,12 +102,12 @@ local function Range(category, path, label, tooltip, low, high, step)
 end
 
 local function Select(category, path, label, tooltip, choices)
-	local GetOptions = ns.Watched("Options choices", function()
+	local function GetOptions()
 		local container = Settings.CreateControlTextContainer()
 		local list = type(choices) == "function" and choices() or choices
 		for _, choice in ipairs(list) do container:Add(choice[1], choice[2]) end
 		return container:GetData()
-	end)
+	end
 	Settings.CreateDropdown(category, Register(category, path, Settings.VarType.String, label), GetOptions, tooltip)
 end
 
@@ -118,29 +124,29 @@ end
 -- A colour: the Settings API has no colour control, so a button opens the picker. `key` is the
 -- colour's name under health: backgroundColor, or playerColor (his own enemy player colour).
 local function ColorButtons(layout, group, key, label, tooltip)
-	local Open = ns.Watched("Options colour open", function()
+	local function Open()
 		local color = ns.GroupOptions(group).health[key]
 		local previous = { color[1], color[2], color[3], color[4] }
-		local Apply = ns.Watched("Options colour apply", function()
+		local function Apply()
 			local r, g, b = ColorPickerFrame:GetColorRGB()
 			color[1], color[2], color[3], color[4] = r, g, b, ColorPickerFrame:GetColorAlpha()
 			ns.UpdateAllPlates()
-		end)
+		end
 		ColorPickerFrame:SetupColorPickerAndShow({
 			r = color[1], g = color[2], b = color[3], opacity = color[4], hasOpacity = true,
 			swatchFunc = Apply,
 			opacityFunc = Apply,
-			cancelFunc = ns.Watched("Options colour cancel", function()
+			cancelFunc = function()
 				color[1], color[2], color[3], color[4] = previous[1], previous[2], previous[3], previous[4]
 				ns.UpdateAllPlates()
-			end),
+			end,
 		})
-	end)
-	local Reset = ns.Watched("Options colour reset", function()
+	end
+	local function Reset()
 		local color, default = ns.GroupOptions(group).health[key], ns.GroupDefaults(group).health[key]
 		color[1], color[2], color[3], color[4] = default[1], default[2], default[3], default[4]
 		ns.UpdateAllPlates()
-	end)
+	end
 	layout:AddInitializer(CreateSettingsButtonInitializer(label, "Choose", Open, tooltip, true))
 	layout:AddInitializer(CreateSettingsButtonInitializer("Reset " .. label, "Reset", Reset, nil, true))
 end
