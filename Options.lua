@@ -232,6 +232,11 @@ function ns.BuildOptions()
 	Toggle(category, { "general", "drNPCs" }, "Diminishing Returns On NPCs Too",
 		"Also show it on hostile NPCs, counted by the rules for players. Whether and how an NPC diminishes "
 		.. "is not known, so on NPCs this is a guess.")
+	Toggle(category, { "general", "showHealPrediction" }, "Show Incoming Heals",
+		"Heals being cast on the unit show as a green part after its health.")
+	Toggle(category, { "general", "showAbsorbs" }, "Show Absorb Shields",
+		"Shields such as Power Word: Shield show as a striped part after its health. "
+		.. "A shield bigger than the missing health makes the end of the bar glow.")
 	Toggle(category, { "general", "executeColor" }, "Execute Color",
 		"An enemy health bar turns orange once its health is under the percent below.")
 	Range(category, { "general", "executePercent" }, "Execute Percent",

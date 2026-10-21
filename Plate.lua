@@ -75,6 +75,7 @@ end
 local UNIT_EVENTS = {
 	"UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT_FACTION", "UNIT_FLAGS",
 	"UNIT_THREAT_LIST_UPDATE", "UNIT_LEVEL", "UNIT_CLASSIFICATION_CHANGED",
+	"UNIT_HEAL_PREDICTION", "UNIT_ABSORB_AMOUNT_CHANGED",
 }
 
 -- Only while a plate wears the Modern style.
@@ -209,8 +210,58 @@ function ns.CreatePlate(base)
 	health.aggro:SetVertexColor(1, 0, 0)
 	health.aggro:Hide()
 
-	health.text = health:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	health.text:SetPoint("CENTER", 0, 1)
+	-- Incoming heals and absorb shields, the way Blizzard's raid frames, BetterBlizzPlates
+	-- (forever/modules/absorb.lua) and EllesmereUI (EUI_Nameplates_Styles.lua) do it on Forever:
+	-- the amounts are secret, so the client's heal prediction calculator clamps them and the
+	-- bars take them straight in. Each bar is as wide as the health bar and starts where the
+	-- one before it ends, so the fill lands on the missing health; the clip frame cuts off
+	-- whatever would run past the bar's end.
+	local predict = CreateFrame("Frame", nil, health)
+	predict:SetAllPoints()
+	predict:SetClipsChildren(true)
+	predict:SetFrameLevel(health:GetFrameLevel() + 1)
+	health.predict = predict
+
+	local heal = CreateFrame("StatusBar", nil, predict)
+	health.heal = heal
+
+	-- White shield (his choice, 2026-10-21), built like Blizzard's TotalAbsorbBarTemplate: a
+	-- fill with Shield-Overlay stripes on top. Fill as EllesmereUI's white "clean" style (0.3),
+	-- stripes as BetterBlizzPlates/BetterBlizzFrames tint them (1, 1, 1, 0.7-0.8).
+	local absorb = CreateFrame("StatusBar", nil, predict)
+	absorb:SetStatusBarTexture(ns.WHITE)
+	absorb:SetStatusBarColor(1, 1, 1, 0.35)
+	local stripes = absorb:CreateTexture(nil, "ARTWORK", nil, 1)
+	stripes:SetTexture("Interface\\RaidFrame\\Shield-Overlay", "REPEAT", "REPEAT")
+	stripes:SetHorizTile(true)
+	stripes:SetVertTile(true)
+	-- the stripe art itself is tinted blue; grey it so white stays white
+	stripes:SetDesaturated(true)
+	stripes:SetVertexColor(1, 1, 1, 0.8)
+	stripes:SetAllPoints(absorb:GetStatusBarTexture())
+	absorb.stripes = stripes
+	health.absorb = absorb
+
+	-- text and the over-shield glow sit above the prediction bars
+	local top = CreateFrame("Frame", nil, health)
+	top:SetAllPoints()
+	top:SetFrameLevel(health:GetFrameLevel() + 2)
+
+	-- a shield bigger than the missing health: Blizzard's glow on the bar's right end
+	health.overAbsorb = top:CreateTexture(nil, "OVERLAY")
+	health.overAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
+	health.overAbsorb:SetBlendMode("ADD")
+	health.overAbsorb:SetWidth(12)
+	health.overAbsorb:SetPoint("TOPLEFT", health, "TOPRIGHT", -6, 2)
+	health.overAbsorb:SetPoint("BOTTOMLEFT", health, "BOTTOMRIGHT", -6, -2)
+	health.overAbsorb:SetAlpha(0)
+
+	plate.healCalc = CreateUnitHealPredictionCalculator()
+	plate.healCalc:SetIncomingHealClampMode(Enum.UnitIncomingHealClampMode.MissingHealth)
+	plate.healCalc:SetDamageAbsorbClampMode(Enum.UnitDamageAbsorbClampMode.MissingHealth)
+
+	health.text = top:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	health.text:SetPoint("CENTER", health, "CENTER", 0, 1)
 
 	plate.name = plate:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	plate.name:SetPoint("BOTTOM", health, "TOP", 0, 4)
@@ -449,6 +500,7 @@ function Plate:ApplyOptions()
 	health:SetSize(width, height)
 	health:SetStatusBarTexture(ns.FetchStatusBar(options.health.statusBar))
 	health:SetShown(not self.nameOnly)
+	self:LayoutPrediction(width, height, options.health.statusBar)
 	local bg = options.health.backgroundColor
 	health.background:SetVertexColor(bg[1], bg[2], bg[3], bg[4])
 	ns.SetFont(health.text, options.health.font, options.health.fontSize, options.health.fontFlags)
@@ -704,6 +756,8 @@ function Plate:OnEvent(event)
 		if castKind == "stop" then self:StopCast() else self:UpdateCast() end
 	elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then
 		self:UpdateHealth()
+	elseif event == "UNIT_HEAL_PREDICTION" or event == "UNIT_ABSORB_AMOUNT_CHANGED" then
+		self:UpdatePrediction()
 	elseif event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" then
 		-- a mob that gains or loses all its power shows or hides its bar
 		if self.isPlayerUnit then self:UpdatePowerValue() else self:UpdatePower() end
@@ -727,6 +781,54 @@ end
 ------------------------------------------------------------------------------------------
 -- Element updates
 ------------------------------------------------------------------------------------------
+-- Anchors ride the health fill texture, and a texture change can hand back a new one, so
+-- this runs on every ApplyOptions (EllesmereUI re-seats its absorb bars the same way).
+function Plate:LayoutPrediction(width, height, statusBar)
+	local health = self.health
+	local fill = health:GetStatusBarTexture()
+	local heal, absorb = health.heal, health.absorb
+	heal:SetStatusBarTexture(ns.FetchStatusBar(statusBar))
+	heal:SetStatusBarColor(0.1, 0.9, 0.3, 0.6)
+	heal:ClearAllPoints()
+	heal:SetPoint("TOPLEFT", fill, "TOPRIGHT")
+	heal:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT")
+	heal:SetWidth(width)
+	local healFill = heal:GetStatusBarTexture()
+	absorb:ClearAllPoints()
+	absorb:SetPoint("TOPLEFT", healFill, "TOPRIGHT")
+	absorb:SetPoint("BOTTOMLEFT", healFill, "BOTTOMRIGHT")
+	absorb:SetWidth(width)
+	local general = ns.db.general
+	heal:SetShown(general.showHealPrediction)
+	absorb:SetShown(general.showAbsorbs)
+	if not general.showAbsorbs then health.overAbsorb:SetAlpha(0) end
+end
+
+-- Every amount here is secret: it goes from the calculator into SetValue or
+-- SetAlphaFromBoolean and nowhere else. A zero amount draws nothing.
+function Plate:UpdatePrediction()
+	local general = ns.db.general
+	if not (general.showHealPrediction or general.showAbsorbs) then return end
+	local health, calc = self.health, self.healCalc
+	UnitGetDetailedHealPrediction(self.unit, nil, calc)
+	local maxHealth = calc:GetMaximumHealth()
+	if general.showHealPrediction then
+		local heal = health.heal
+		heal:SetMinMaxValues(0, maxHealth)
+		heal:SetValue((calc:GetIncomingHeals()))
+	else
+		-- the shield starts at the heal bar's end: an empty heal bar keeps it on the health edge
+		health.heal:SetValue(0)
+	end
+	if general.showAbsorbs then
+		local amount, clamped = calc:GetDamageAbsorbs()
+		local absorb = health.absorb
+		absorb:SetMinMaxValues(0, maxHealth)
+		absorb:SetValue(amount)
+		health.overAbsorb:SetAlphaFromBoolean(clamped, 1, 0)
+	end
+end
+
 function Plate:UpdateHealth()
 	local unit, health = self.unit, self.health
 	health:SetMinMaxValues(0, UnitHealthMax(unit))
@@ -734,6 +836,7 @@ function Plate:UpdateHealth()
 	if self.executeCurve then
 		SetExecuteColor(health, unit, self.executeCurve)
 	end
+	self:UpdatePrediction()
 
 	local text = health.text
 	if not self.options.health.showTextFormat then

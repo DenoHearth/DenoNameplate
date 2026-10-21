@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.0 — 2026-10-21
+
+- New: incoming heals show on the health bar as a green part after the health
+- New: absorb shields (Power Word: Shield and others) show as a white striped part after the health; a shield bigger than the missing health makes the end of the bar glow
+- Both have a switch on the General page ("Show Incoming Heals", "Show Absorb Shields"), on by default
+- The amounts come from the game's own heal prediction, the way Blizzard's raid frames draw them, so they work in combat
+
 ## v1.4.1 — 2026-10-19
 
 - Fixed: "DenoNameplate was blocked from calling StanceButton:SetShown()" in fights (warriors and other classes with a stance bar). The addon now does its login setup a moment after login instead of during it, which tainted the game's own action bars for the whole session
