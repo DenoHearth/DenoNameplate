@@ -134,6 +134,30 @@ watch:SetScript("OnUpdate", function(_, elapsed)
 	Scan(nil)
 end)
 
+-- The whole finding as one entry in the error window (Button Drawer's, or the game's own), which
+-- he copies anyway: the saved file only comes when the game closes normally, and it did not
+-- (his upload, 2026-10-21: the file stopped at 21:51, the refusals were at 22:08 and 22:22).
+local function Report(entry)
+	local lines = { "Deno Nameplate watch report (copy all of this)",
+		"client " .. tostring(log.client) .. ", number keys checkable: " .. tostring(log.numberKeys) }
+	local refusal = {}
+	for _, key in ipairs({ "func", "at", "button", "action", "actionSecure", "actionBy",
+		"rangeSecure", "rangeBy", "usableSecure", "usableBy", "lastOurs" }) do
+		refusal[#refusal + 1] = key .. "=" .. tostring(entry[key])
+	end
+	lines[#lines + 1] = "refusal: " .. table.concat(refusal, ", ")
+	if #log.records == 0 then
+		lines[#lines + 1] = "tainted slots: none of the watched slots turned tainted"
+	end
+	for i, record in ipairs(log.records) do
+		lines[#lines + 1] = string.format("%d. %s by %s at %s s, during %s%s", i, record.slot, record.by,
+			tostring(record.at), record.during, record.lastOurs and (", last of ours " .. record.lastOurs) or "")
+		if record.stack then lines[#lines + 1] = "   " .. record.stack:gsub("\n", "\n   ") end
+	end
+	local handler = geterrorhandler()
+	if handler then pcall(handler, table.concat(lines, "\n")) end
+end
+
 -- At the refusal: the button under the mouse and what its click read.
 local function Refusal(event, addon, func)
 	local entry = { event = event, addon = tostring(addon), func = tostring(func), at = Since(),
@@ -163,8 +187,8 @@ local function Refusal(event, addon, func)
 	if #refusals < 10 then refusals[#refusals + 1] = entry end
 	if #refusals == 1 then
 		Say("refusal recorded on " .. tostring(entry.button) .. ": its action slot is "
-			.. (entry.actionSecure and "clean" or ("tainted by " .. tostring(entry.actionBy)))
-			.. ". Close the game normally so the file is written.")
+			.. (entry.actionSecure and "clean" or ("tainted by " .. tostring(entry.actionBy))))
+		Report(entry)
 	end
 	Save()
 end
