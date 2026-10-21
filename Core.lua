@@ -303,21 +303,27 @@ function ns.UpdateCanPurge()
 end
 
 local purgeWatch = CreateFrame("Frame")
-purgeWatch:RegisterEvent("PLAYER_LOGIN")
-purgeWatch:RegisterEvent("SPELLS_CHANGED")
-purgeWatch:RegisterEvent("PET_BAR_UPDATE")
-purgeWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
-purgeWatch:RegisterUnitEvent("UNIT_PET", "player")
 -- One look a moment after the events, when the pet swap has settled.
 local purgeQueued = false
-purgeWatch:SetScript("OnEvent", ns.Watched("Core purgeWatch", function()
+local function QueuePurgeCheck()
 	if purgeQueued then return end
 	purgeQueued = true
 	C_Timer.After(1.5, ns.Watched("Core purge timer", function()
 		purgeQueued = false
 		ns.UpdateCanPurge()
 	end))
-end))
+end
+purgeWatch:SetScript("OnEvent", ns.Watched("Core purgeWatch", QueuePurgeCheck))
+
+-- Watching your spells and pet starts when the file loads (in the step test, when its step comes).
+function ns.StartPurgeWatch()
+	purgeWatch:RegisterEvent("SPELLS_CHANGED")
+	purgeWatch:RegisterEvent("PET_BAR_UPDATE")
+	purgeWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+	purgeWatch:RegisterUnitEvent("UNIT_PET", "player")
+	if IsLoggedIn() then QueuePurgeCheck() else purgeWatch:RegisterEvent("PLAYER_LOGIN") end
+end
+if ns.TestAllows("purge") then ns.StartPurgeWatch() end
 
 ns.Refresh = ns.Watched("Options Refresh", function()
 	ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
@@ -362,19 +368,23 @@ loader:SetScript("OnEvent", ns.Watched("Core loader", function(self, event, name
 				end
 			end
 			ns.db.general.ccGlowSeconds = ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
-			ns.ApplyClientSettings()
+			-- each part on its own, so the step test (TaintWatch.lua) can start them one at a time
+			if ns.TestAllows("client") then ns.ApplyClientSettings() end
 			if ns.TestAllows("driver") then ns.StartDriver() end
-			ns.BuildOptions()
-			ns.CreateMinimapButton()
+			if ns.TestAllows("options") then ns.BuildOptions() end
+			if ns.TestAllows("minimap") then ns.CreateMinimapButton() end
 		end))
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if pendingClientSettings then ns.ApplyClientSettings() end
-		ns.AfterCombat()
+		if ns.TestAllows("driver") then ns.AfterCombat() end
 	end
 end))
 
-SLASH_DENONAMEPLATE1 = "/dnp"
-SLASH_DENONAMEPLATE2 = "/denonameplate"
-SlashCmdList.DENONAMEPLATE = ns.Watched("Slash", function()
-	if ns.category then Settings.OpenToCategory(ns.category:GetID()) end
-end)
+function ns.RegisterSlash()
+	SLASH_DENONAMEPLATE1 = "/dnp"
+	SLASH_DENONAMEPLATE2 = "/denonameplate"
+	SlashCmdList.DENONAMEPLATE = ns.Watched("Slash", function()
+		if ns.category then Settings.OpenToCategory(ns.category:GetID()) end
+	end)
+end
+if ns.TestAllows("slash") then ns.RegisterSlash() end
