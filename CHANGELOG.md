@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.1 — 2026-10-22
+
+- Fixed: "DenoNameplate was forbidden from calling UNKNOWN()" every time a spell button was clicked with the mouse (key presses were fine). The Friendly and Enemy options handed the game's settings panel a function as their default value; the game ran it inside its own protected setup, and every mouse click on an action button read that setting list afterwards. The defaults are now plain values
+- After switching between Standard and Modern style, the addon now tells you in chat to type /reload before pressing Defaults on the Friendly or Enemy page; until then Defaults puts back the sizes of the style you had before. The Style options say the same in their tooltips
+
 ## v1.5.0 — 2026-10-21
 
 - New: incoming heals show on the health bar as a green part after the health

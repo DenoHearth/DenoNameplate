@@ -40,6 +40,7 @@ end
 -- Friendly and Enemy settings belong to the style those plates wear now: Standard's or Modern's own.
 -- So those controls read and write through the current set, and re-read it when the style changes.
 local groupSettings = {}
+local builtDefaults = {}   -- group -> the defaults table its settings were registered with
 
 local function GroupRegister(category, path, varType, label)
 	local group = path[1]
@@ -49,11 +50,18 @@ local function GroupRegister(category, path, varType, label)
 		return tbl, path[#path]
 	end
 	local variable = "DenoNameplate_" .. table.concat(path, "_")
-	local setting = Settings.RegisterProxySetting(category, variable, varType, label,
-		function()
-			local tbl, key = Walk(ns.GroupDefaults(group))
-			return tbl[key]
-		end,
+	-- The default is a plain value, never a function. Blizzard's ProxySettingMixin:Init checks a
+	-- function default by calling it directly inside the secure registration
+	-- (Blizzard_Setting.lua, ErrorIfInvalidSettingArguments), so our code ran there and everything
+	-- written after it was ours, the setting's entry in SettingsPanel.settings too. A mouse click on
+	-- a spell button walks that table (ActionBarActionButtonMixin:OnClick -> Settings.GetValue
+	-- ("lockActionBars") -> SettingsPanel:GetSetting), ran tainted, and UseAction was refused:
+	-- "forbidden from calling UNKNOWN()" on every mouse click, never on a key (his error,
+	-- 2026-10-21). Plater, which registers no settings, never had it. The value is the default of
+	-- the style worn when the options were built.
+	builtDefaults[group] = builtDefaults[group] or ns.GroupDefaults(group)
+	local defaultTbl, defaultKey = Walk(ns.GroupDefaults(group))
+	local setting = Settings.RegisterProxySetting(category, variable, varType, label, defaultTbl[defaultKey],
 		function()
 			local tbl, key = Walk(ns.GroupOptions(group))
 			return tbl[key]
@@ -67,9 +75,20 @@ local function GroupRegister(category, path, varType, label)
 	return setting
 end
 
--- After a style change: the Friendly and Enemy pages show the other set's values.
+-- After a style change: the Friendly and Enemy pages show the other set's values. Their Defaults
+-- button still holds the defaults of the style worn when the options were built (plain values,
+-- see GroupRegister), so the player is told to /reload first (his ask, 2026-10-22).
+local reloadToldFor
 local function ReloadGroupSettings()
 	for _, setting in ipairs(groupSettings) do setting:NotifyUpdate() end
+	local changed = ns.GroupDefaults("friendly") ~= builtDefaults.friendly
+		or ns.GroupDefaults("enemy") ~= builtDefaults.enemy
+	local style = ns.db.general.style .. "/" .. ns.db.general.modernOn
+	if changed and reloadToldFor ~= style then
+		reloadToldFor = style
+		print("|cffffcc59Deno Nameplate:|r Style changed. Type |cffffffff/reload|r before you press "
+			.. "Defaults on the Friendly or Enemy page; until then Defaults puts back the sizes of the style you had before.")
+	end
 end
 
 local function Register(category, path, varType, label)
@@ -208,10 +227,12 @@ function ns.BuildOptions()
 	Header(layout, "General")
 	Select(category, { "general", "style" }, "Style",
 		"Standard: the compact Deno Nameplate look. Modern: name above a tall health bar with one-decimal percent, "
-		.. "a power bar (mana, energy, rage; it follows form changes) and the cast bar with spell name, time left and icon.",
+		.. "a power bar (mana, energy, rage; it follows form changes) and the cast bar with spell name, time left and icon. "
+		.. "After a change, type /reload before you press Defaults.",
 		STYLES)
 	Select(category, { "general", "modernOn" }, "Modern Style On",
-		"Which NamePlates take the Modern look. The others keep the Standard look.", MODERN_ON)
+		"Which NamePlates take the Modern look. The others keep the Standard look. "
+		.. "After a change, type /reload before you press Defaults.", MODERN_ON)
 	Select(category, { "general", "modernPower" }, "Modern Power Bar",
 		"Which units show a power bar in the Modern look. Units without power never show one.", MODERN_POWER)
 	Toggle(category, { "general", "showAuras" }, "Show My Debuffs",
