@@ -135,7 +135,7 @@ local function AddPending(p)
         oldest.done = true
     end
     pending[#pending + 1] = p
-    C_Timer.After(PENDING_DELAY, function() Resolve(p) end)
+    C_Timer.After(PENDING_DELAY, addon.Watched("DR pending timer", function() Resolve(p) end))
 end
 
 -- A native update whose fields are secret still proves that a DR state
@@ -308,7 +308,7 @@ end
 function ns.KeepBlizzardOn()
     if keepQueued then return end
     keepQueued = true
-    C_Timer.After(0.2, KeepBlizzardOn)
+    C_Timer.After(0.2, addon.Watched("DR keep timer", KeepBlizzardOn))
 end
 
 -- Aura evidence ---------------------------------------------------------------
@@ -409,7 +409,7 @@ RunScans = function()
     end
     if again and not scanScheduled then
         scanScheduled = true
-        C_Timer.After(AURA_THROTTLE, RunScans)
+        C_Timer.After(AURA_THROTTLE, addon.Watched("DR scan timer", RunScans))
     end
 end
 local function QueueScan(unit)
@@ -417,7 +417,7 @@ local function QueueScan(unit)
     dirty[unit] = true
     if scanScheduled then return end
     scanScheduled = true
-    C_Timer.After(0.05, RunScans)
+    C_Timer.After(0.05, addon.Watched("DR scan timer", RunScans))
 end
 
 -- Combat feedback ------------------------------------------------------------
@@ -457,7 +457,7 @@ local function Watch(unit)
     if watchers[unit] then return end
     local watcher = table.remove(spareWatchers) or CreateFrame("Frame")
     watcher.unit = unit
-    watcher:SetScript("OnEvent", OnUnitEvent)
+    watcher:SetScript("OnEvent", addon.Watched("DR unit", OnUnitEvent))
     if nativeValid then watcher:RegisterUnitEvent(DR_EVENT, unit) end
     watcher:RegisterUnitEvent("UNIT_AURA", unit)
     watcher:RegisterUnitEvent("UNIT_COMBAT", unit)
@@ -524,12 +524,12 @@ local mineQueued = false
 function ns.QueueMine()
     if mineQueued then return end
     mineQueued = true
-    C_Timer.After(0.5, function()
+    C_Timer.After(0.5, addon.Watched("DR mine timer", function()
         mineQueued = false
         ns.RefreshMine()
         ns.RequestRefresh()
         if ns.RefreshSettings then ns.RefreshSettings() end
-    end)
+    end))
 end
 
 local mineEvents = { SPELLS_CHANGED = true, BAG_UPDATE_DELAYED = true, PLAYER_TALENT_UPDATE = true,
@@ -567,7 +567,7 @@ function ns.StartSources()
     for event in pairs(mineEvents) do Register(frame, event) end
     for event in pairs(restrictionEvents) do Register(frame, event) end
     Register(frame, "CVAR_UPDATE")
-    frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
+    frame:SetScript("OnEvent", addon.Watched("DR", function(_, event, arg1, arg2, arg3)
         if event == "CVAR_UPDATE" then
             if ns.Text(arg1) and arg1:lower() == ns.CVAR_ENABLED:lower() then ns.KeepBlizzardOn() end
         elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
@@ -605,7 +605,7 @@ function ns.StartSources()
             ns.RescanAll()
             if event == "PLAYER_REGEN_ENABLED" then ns.KeepBlizzardOn() end
         end
-    end)
+    end))
     Watch("target")
     Watch("focus")
     for _, plate in ipairs(C_NamePlate.GetNamePlates()) do

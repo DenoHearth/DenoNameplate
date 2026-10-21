@@ -352,7 +352,7 @@ function ns.CreatePlate(base)
 	plate.questIcon:SetAtlas("QuestNormal")
 	plate.questIcon:Hide()
 
-	plate:SetScript("OnEvent", plate.OnEvent)
+	plate:SetScript("OnEvent", ns.Watched("Plate", plate.OnEvent))
 	return plate
 end
 
@@ -377,7 +377,7 @@ function Plate:EnsureAuras()
 		sortDirection = AuraContainerSortDirection.Normal,
 		layout = { elementWidth = 20, elementHeight = 14, elementSpacing = 4, lineSpacing = 4 },
 		-- Every region is built and handed over here; the button is sealed afterwards.
-		initializeFrame = function(button)
+		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
 			button:SetSize(20, 14)
 			local border = button:CreateTexture(nil, "BACKGROUND")
 			border:SetAllPoints()
@@ -396,7 +396,7 @@ function Plate:EnsureAuras()
 			time:SetFont(fontFile, fontHeight, "OUTLINE")
 			time:SetPoint("CENTER", 0, 1)
 			button:SetDurationText(time, {})
-		end,
+		end),
 	})
 	self:EnsureCC()
 	self:EnsurePurge()
@@ -418,7 +418,7 @@ function Plate:EnsurePurge()
 		sortMethod = AuraContainerSortMethod.Expiration,
 		sortDirection = AuraContainerSortDirection.Normal,
 		layout = { elementWidth = 18, elementHeight = 18, elementSpacing = 4, lineSpacing = 4 },
-		initializeFrame = function(button)
+		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
 			button:SetSize(18, 18)
 			local border = button:CreateTexture(nil, "BACKGROUND")
 			border:SetAllPoints()
@@ -428,7 +428,7 @@ function Plate:EnsurePurge()
 			icon:SetPoint("BOTTOMRIGHT", -1, 1)
 			icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 			button:SetIcon(icon)
-		end,
+		end),
 	})
 end
 
@@ -444,7 +444,7 @@ function Plate:EnsureCC()
 	cc:AddAuraSlot(CC_KEY, "HARMFUL", {
 		candidateFilters = filters,
 		-- Every region is built and handed over here; the button is sealed afterwards.
-		initializeFrame = function(button)
+		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
 			button:SetSize(CC_ICON, CC_ICON)
 			button:SetPoint("CENTER", cc, "CENTER")
 			local border = button:CreateTexture(nil, "BACKGROUND")
@@ -461,7 +461,7 @@ function Plate:EnsureCC()
 				textFormatter = ccTimeFormat,
 				textColor = { curve = ccTimeColor, property = Enum.DurationTextBindingProperty.RemainingDuration },
 			})
-		end,
+		end),
 	})
 	if not ccGlowFormat then return end
 	local glow = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
@@ -471,13 +471,13 @@ function Plate:EnsureCC()
 	glow:SetFrameLevel(self:GetFrameLevel() + 10)
 	glow:AddAuraSlot(CC_KEY, "HARMFUL|PLAYER", {
 		candidateFilters = filters,
-		initializeFrame = function(button)
+		initializeFrame = ns.Watched("Aura initializeFrame", function(button)
 			button:SetSize(CC_ICON, CC_ICON)
 			button:SetPoint("CENTER", glow, "CENTER")
 			local text = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 			text:SetPoint("CENTER", 0, 0)
 			button:SetDurationText(text, { binding = ccGlowBinding, textFormatter = ccGlowFormat })
-		end,
+		end),
 	})
 end
 

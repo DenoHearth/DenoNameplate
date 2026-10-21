@@ -44,14 +44,14 @@ local function Usable(frame)
 		and type(frame.GetAlpha) == "function" and type(frame.SetAlpha) == "function"
 end
 
-holder:SetScript("OnUpdate", function()
+holder:SetScript("OnUpdate", ns.Watched("Driver holder OnUpdate", function()
 	for frame, on in pairs(suppressed) do
 		if on and Usable(frame) then
 			local alpha = frame:GetAlpha()
 			if issecretvalue(alpha) or alpha > 0 then frame:SetAlpha(0) end
 		end
 	end
-end)
+end))
 
 local function IsTrue(value)
 	return not issecretvalue(value) and value and true or false
@@ -116,7 +116,7 @@ function ns.StartDriver()
 	driver:RegisterEvent("RAID_TARGET_UPDATE")
 	driver:RegisterEvent("QUEST_LOG_UPDATE")
 	driver:RegisterEvent("UNIT_THREAT_SITUATION_UPDATE")
-	driver:SetScript("OnEvent", function(self, event, unit)
+	driver:SetScript("OnEvent", ns.Watched("Driver", function(self, event, unit)
 		if event == "NAME_PLATE_UNIT_ADDED" then
 			OnAdded(unit)
 		elseif event == "NAME_PLATE_UNIT_REMOVED" then
@@ -134,7 +134,7 @@ function ns.StartDriver()
 				plate:UpdateAggro()
 			end
 		end
-	end)
+	end))
 
 	-- Nameplates already on screen when the addon starts (after a /reload).
 	for _, base in ipairs(C_NamePlate.GetNamePlates()) do

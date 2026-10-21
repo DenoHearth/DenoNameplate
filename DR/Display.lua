@@ -100,12 +100,12 @@ end
 function DR.RequestRefresh() queued = true end
 
 local driver = CreateFrame("Frame")
-driver:SetScript("OnUpdate", function(_, elapsed)
+driver:SetScript("OnUpdate", addon.Watched("DR display OnUpdate", function(_, elapsed)
 	since = since + elapsed
 	if not queued or since < 0.1 then return end
 	since, queued = 0, false
 	if refresh() then queued = true end       -- the seconds on the icons keep counting
-end)
+end))
 
 -- Our two switches (Options: General) are the tracker's "enabled" and "also NPCs".
 local function sync()
@@ -117,10 +117,10 @@ local function sync()
 end
 
 driver:RegisterEvent("PLAYER_LOGIN")
-driver:SetScript("OnEvent", function(self)
+driver:SetScript("OnEvent", addon.Watched("DR display", function(self)
 	self:UnregisterEvent("PLAYER_LOGIN")
 	-- next frame, out of the login event: see Core.lua (PLAYER_LOGIN)
-	C_Timer.After(0, function()
+	C_Timer.After(0, addon.Watched("DR login timer", function()
 		if not addon.db then return end
 		local saved, problem = DR.LoadSettings(DenoNameplateDB.dr)
 		if not saved then
@@ -139,6 +139,6 @@ driver:SetScript("OnEvent", function(self)
 		local general = addon.db.general
 		saved.enabled, saved.npcs = general.showDR and true or false, general.drNPCs and true or false
 		DR.StartSources()
-		hooksecurefunc(addon, "Refresh", sync)
-	end)
-end)
+		hooksecurefunc(addon, "Refresh", addon.Watched("DR sync", sync))
+	end))
+end))

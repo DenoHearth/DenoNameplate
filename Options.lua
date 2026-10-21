@@ -50,27 +50,27 @@ local function GroupRegister(category, path, varType, label)
 	end
 	local variable = "DenoNameplate_" .. table.concat(path, "_")
 	local setting = Settings.RegisterProxySetting(category, variable, varType, label,
-		function()
+		ns.Watched("Options default", function()
 			local tbl, key = Walk(ns.GroupDefaults(group))
 			return tbl[key]
-		end,
-		function()
+		end),
+		ns.Watched("Options get", function()
 			local tbl, key = Walk(ns.GroupOptions(group))
 			return tbl[key]
-		end,
-		function(value)
+		end),
+		ns.Watched("Options set", function(value)
 			local tbl, key = Walk(ns.GroupOptions(group))
 			tbl[key] = value
-		end)
+		end))
 	Settings.SetOnValueChangedCallback(variable, ns.Refresh)
 	groupSettings[#groupSettings + 1] = setting
 	return setting
 end
 
 -- After a style change: the Friendly and Enemy pages show the other set's values.
-local function ReloadGroupSettings()
+local ReloadGroupSettings = ns.Watched("Options reload", function()
 	for _, setting in ipairs(groupSettings) do setting:NotifyUpdate() end
-end
+end)
 
 local function Register(category, path, varType, label)
 	if path[1] == "friendly" or path[1] == "enemy" then
@@ -96,12 +96,12 @@ local function Range(category, path, label, tooltip, low, high, step)
 end
 
 local function Select(category, path, label, tooltip, choices)
-	local function GetOptions()
+	local GetOptions = ns.Watched("Options choices", function()
 		local container = Settings.CreateControlTextContainer()
 		local list = type(choices) == "function" and choices() or choices
 		for _, choice in ipairs(list) do container:Add(choice[1], choice[2]) end
 		return container:GetData()
-	end
+	end)
 	Settings.CreateDropdown(category, Register(category, path, Settings.VarType.String, label), GetOptions, tooltip)
 end
 
@@ -118,29 +118,29 @@ end
 -- A colour: the Settings API has no colour control, so a button opens the picker. `key` is the
 -- colour's name under health: backgroundColor, or playerColor (his own enemy player colour).
 local function ColorButtons(layout, group, key, label, tooltip)
-	local function Open()
+	local Open = ns.Watched("Options colour open", function()
 		local color = ns.GroupOptions(group).health[key]
 		local previous = { color[1], color[2], color[3], color[4] }
-		local function Apply()
+		local Apply = ns.Watched("Options colour apply", function()
 			local r, g, b = ColorPickerFrame:GetColorRGB()
 			color[1], color[2], color[3], color[4] = r, g, b, ColorPickerFrame:GetColorAlpha()
 			ns.UpdateAllPlates()
-		end
+		end)
 		ColorPickerFrame:SetupColorPickerAndShow({
 			r = color[1], g = color[2], b = color[3], opacity = color[4], hasOpacity = true,
 			swatchFunc = Apply,
 			opacityFunc = Apply,
-			cancelFunc = function()
+			cancelFunc = ns.Watched("Options colour cancel", function()
 				color[1], color[2], color[3], color[4] = previous[1], previous[2], previous[3], previous[4]
 				ns.UpdateAllPlates()
-			end,
+			end),
 		})
-	end
-	local function Reset()
+	end)
+	local Reset = ns.Watched("Options colour reset", function()
 		local color, default = ns.GroupOptions(group).health[key], ns.GroupDefaults(group).health[key]
 		color[1], color[2], color[3], color[4] = default[1], default[2], default[3], default[4]
 		ns.UpdateAllPlates()
-	end
+	end)
 	layout:AddInitializer(CreateSettingsButtonInitializer(label, "Choose", Open, tooltip, true))
 	layout:AddInitializer(CreateSettingsButtonInitializer("Reset " .. label, "Reset", Reset, nil, true))
 end

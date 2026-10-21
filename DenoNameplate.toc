@@ -2,11 +2,12 @@
 ## Title: Deno Nameplate
 ## Notes: Clean, compact nameplates for WoW: Forever with health text, cast bars, level and quest icons, and full size and font options.
 ## Author: Deniz
-## Version: 1.5.0
+## Version: 1.5.0-watch
 ## Category: Unit Frames
 ## SavedVariables: DenoNameplateDB
 ## OptionalDeps: LibSharedMedia-3.0
 
+TaintWatch.lua
 Core.lua
 CC.lua
 DR\Store.lua

@@ -4,6 +4,9 @@
 -- from the API straight into a widget, a curve or a formatter, never through a Lua operator.
 local ADDON, ns = ...
 
+-- TaintWatch.lua (test build) wraps our handlers; without it they run as they are.
+ns.Watched = ns.Watched or function(_, fn) return fn end
+
 ns.WHITE = "Interface\\Buttons\\WHITE8X8"
 
 -- Largest value the client accepts for nameplateMaxDistance (0-60 yards).
@@ -306,27 +309,27 @@ purgeWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
 purgeWatch:RegisterUnitEvent("UNIT_PET", "player")
 -- One look a moment after the events, when the pet swap has settled.
 local purgeQueued = false
-purgeWatch:SetScript("OnEvent", function()
+purgeWatch:SetScript("OnEvent", ns.Watched("Core purgeWatch", function()
 	if purgeQueued then return end
 	purgeQueued = true
-	C_Timer.After(1.5, function()
+	C_Timer.After(1.5, ns.Watched("Core purge timer", function()
 		purgeQueued = false
 		ns.UpdateCanPurge()
-	end)
-end)
+	end))
+end))
 
-function ns.Refresh()
+ns.Refresh = ns.Watched("Options Refresh", function()
 	ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
 	ns.ApplyClientSettings()
 	ns.UpdateAllPlates()
 	ns.UpdateMinimapButton()
-end
+end)
 
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
 loader:RegisterEvent("PLAYER_LOGIN")
 loader:RegisterEvent("PLAYER_REGEN_ENABLED")
-loader:SetScript("OnEvent", function(self, event, name)
+loader:SetScript("OnEvent", ns.Watched("Core loader", function(self, event, name)
 	if event == "ADDON_LOADED" then
 		if name ~= ADDON then return end
 		DenoNameplateDB = CopyDefaults(ns.defaults, DenoNameplateDB or {})
@@ -348,7 +351,7 @@ loader:SetScript("OnEvent", function(self, event, name)
 		-- the same run as ours, and our setup work there (options, minimap button, plates)
 		-- tainted them. Blizzard's warrior gamepad button was set up tainted at every login and
 		-- passed it on to the stance bar, which was then blocked in fights (probe 2026-10-19).
-		C_Timer.After(0, function()
+		C_Timer.After(0, ns.Watched("Core login timer", function()
 			-- First login: take the clickable size the client is using as the starting point.
 			local clickable = ns.db.general.clickable
 			if clickable.width <= 0 or clickable.height <= 0 then
@@ -362,15 +365,15 @@ loader:SetScript("OnEvent", function(self, event, name)
 			ns.StartDriver()
 			ns.BuildOptions()
 			ns.CreateMinimapButton()
-		end)
+		end))
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if pendingClientSettings then ns.ApplyClientSettings() end
 		ns.AfterCombat()
 	end
-end)
+end))
 
 SLASH_DENONAMEPLATE1 = "/dnp"
 SLASH_DENONAMEPLATE2 = "/denonameplate"
-SlashCmdList.DENONAMEPLATE = function()
+SlashCmdList.DENONAMEPLATE = ns.Watched("Slash", function()
 	if ns.category then Settings.OpenToCategory(ns.category:GetID()) end
-end
+end)
