@@ -1,4 +1,4 @@
--- Taint watch (test build only, not for release). His error, 2026-10-21: a MOUSE click on a spell
+-- Taint watch (test build only, not for release; it also switches the game's taint log on). His error, 2026-10-21: a MOUSE click on a spell
 -- button gives "DenoNameplate was forbidden from calling UNKNOWN()" inside UseAction; the spell's key
 -- does not. In Blizzard's code (forever branch, ActionButton.lua) only the mouse path reads the
 -- button's own state before UseAction: OnClick reads self.action, and self.action is written anew on
@@ -125,6 +125,12 @@ function ns.Watched(label, fn)
 	end
 end
 
+-- Test build only: the game's own taint log (Logs\taint.log) names the exact line where Blizzard's code
+-- first read something of ours. Switched on here so he has nothing to type; a normal build never
+-- writes a game setting.
+if C_CVar and C_CVar.GetCVar("taintLog") ~= "2" then pcall(C_CVar.SetCVar, "taintLog", "2") end
+log.taintLog = C_CVar and C_CVar.GetCVar("taintLog")
+
 local watch = CreateFrame("Frame")
 local elapsedSince = 0
 watch:SetScript("OnUpdate", function(_, elapsed)
@@ -133,6 +139,81 @@ watch:SetScript("OnUpdate", function(_, elapsed)
 	elapsedSince = 0
 	Scan(nil)
 end)
+
+-- His second run (2026-10-21 22:34): the button's action slot and its two per-action entries were
+-- clean at the refusal. So everything else the mouse path reads before UseAction is looked at, at
+-- the refusal itself: the functions and tables on that path, and the "lockActionBars" setting it
+-- asks for (Settings.GetValue walks every registered setting, ours too). Returns the tainted ones.
+local function Wider()
+	local found = {}
+	local function Look(tbl, key, name)
+		if tbl == nil and key == nil then return end
+		local secure, by = Secure(tbl, key)
+		if not secure then found[#found + 1] = name .. " (" .. tostring(by) .. ")" end
+	end
+	for _, name in ipairs({ "Settings", "SettingsPanel", "SECURE_ACTIONS", "SpellFlyout", "C_ActionBar", "C_CVar",
+		"GetCVarBool", "IsModifiedClick", "GetCursorInfo", "UseAction", "GetActionInfo", "SaveMacro",
+		"securecallfunction", "SecureActionButton_OnClick", "SecureButton_GetModifiedAttribute",
+		"SecureButton_GetAttribute", "SecureButton_GetModifiedUnit", "SecureButton_GetModifierPrefix",
+		"SecureButton_GetButtonSuffix", "SpellCanTargetItem", "SpellCanTargetItemID", "KeybindFrames_InQuickKeybindMode",
+		"QuickKeybindFrame", "QuickKeybindButtonTemplateMixin", "ActionBarActionButtonMixin",
+		"ActionBarActionButtonDerivedMixin", "IsShiftKeyDown", "IsControlKeyDown", "IsAltKeyDown",
+		"UnitExists", "UnitCanAttack", "UnitCanAssist", "UnitHasVehicleUI", "GetModifiedClick",
+		"ATTRIBUTE_NOOP", "NUM_ACTIONBAR_BUTTONS" }) do
+		Look(nil, name, name)
+	end
+	if Settings then
+		Look(Settings, "GetValue", "Settings.GetValue")
+		Look(Settings, "GetSetting", "Settings.GetSetting")
+	end
+	if C_ActionBar then
+		for _, key in ipairs({ "IsAutoCastPetAction", "GetActionBarPage", "GetExtraBarIndex" }) do
+			Look(C_ActionBar, key, "C_ActionBar." .. key)
+		end
+	end
+	if C_CVar then Look(C_CVar, "GetCVarBool", "C_CVar.GetCVarBool") Look(C_CVar, "GetCVar", "C_CVar.GetCVar") end
+	if SECURE_ACTIONS then Look(SECURE_ACTIONS, "action", "SECURE_ACTIONS.action") end
+	if ActionBarActionButtonMixin then
+		for _, key in ipairs({ "OnClick", "TriggerSecureClick", "CalculateAction" }) do
+			Look(ActionBarActionButtonMixin, key, "ActionBarActionButtonMixin." .. key)
+		end
+	end
+	if ActionBarActionButtonDerivedMixin then
+		Look(ActionBarActionButtonDerivedMixin, "ActionBarActionButtonDerivedMixin_OnClick", "Derived_OnClick")
+	end
+	if QuickKeybindButtonTemplateMixin then
+		Look(QuickKeybindButtonTemplateMixin, "QuickKeybindButtonOnClick", "QuickKeybindButtonOnClick")
+	end
+	local button = ActionButton3 or ActionButton1
+	if button then
+		for _, key in ipairs({ "TriggerSecureClick", "CalculateAction", "popup", "isExtra", "buttonType", "bar",
+			"ActionBarActionButtonDerivedMixin_OnClick", "OnClick" }) do
+			Look(button, key, "ActionButton." .. key)
+		end
+	end
+	local settings = SettingsPanel and rawget(SettingsPanel, "settings")
+	if type(settings) == "table" then
+		Look(SettingsPanel, "GetSetting", "SettingsPanel.GetSetting")
+		local count, bad = 0, 0
+		for setting in pairs(settings) do
+			count = count + 1
+			local secure, by = Secure(settings, setting)
+			local ok, variable = pcall(setting.GetVariable, setting)
+			variable = ok and tostring(variable) or "?"
+			if not secure then
+				bad = bad + 1
+				if bad <= 10 then found[#found + 1] = "SettingsPanel.settings[" .. variable .. "] (" .. tostring(by) .. ")" end
+			end
+			if variable == "lockActionBars" then
+				for _, key in ipairs({ "pendingValue", "GetValueDerived", "TransformValue", "GetValue", "variable" }) do
+					Look(setting, key, "lockActionBars setting." .. key)
+				end
+			end
+		end
+		found[#found + 1] = "(settings walked: " .. count .. ", tainted keys: " .. bad .. ")"
+	end
+	return found
+end
 
 -- The whole finding as one entry in the error window (Button Drawer's, or the game's own), which
 -- he copies anyway: the saved file only comes when the game closes normally, and it did not
@@ -146,6 +227,9 @@ local function Report(entry)
 		refusal[#refusal + 1] = key .. "=" .. tostring(entry[key])
 	end
 	lines[#lines + 1] = "refusal: " .. table.concat(refusal, ", ")
+	local tainted = entry.tainted or {}
+	lines[#lines + 1] = "tainted at the refusal: " .. (#tainted > 0 and table.concat(tainted, "; ") or "none")
+	lines[#lines + 1] = "taintLog now: " .. tostring(log.taintLog)
 	if #log.records == 0 then
 		lines[#lines + 1] = "tainted slots: none of the watched slots turned tainted"
 	end
@@ -183,6 +267,7 @@ local function Refusal(event, addon, func)
 			end
 		end
 	end
+	entry.tainted = Wider()
 	local refusals = log.refusals
 	if #refusals < 10 then refusals[#refusals + 1] = entry end
 	if #refusals == 1 then
