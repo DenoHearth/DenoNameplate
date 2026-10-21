@@ -100,12 +100,12 @@ end
 function DR.RequestRefresh() queued = true end
 
 local driver = CreateFrame("Frame")
-driver:SetScript("OnUpdate", addon.Watched("DR display OnUpdate", function(_, elapsed)
+local function tick(_, elapsed)
 	since = since + elapsed
 	if not queued or since < 0.1 then return end
 	since, queued = 0, false
 	if refresh() then queued = true end       -- the seconds on the icons keep counting
-end))
+end
 
 -- Our two switches (Options: General) are the tracker's "enabled" and "also NPCs".
 local function sync()
@@ -138,7 +138,15 @@ driver:SetScript("OnEvent", addon.Watched("DR display", function(self)
 		started = true
 		local general = addon.db.general
 		saved.enabled, saved.npcs = general.showDR and true or false, general.drNPCs and true or false
-		DR.StartSources()
 		hooksecurefunc(addon, "Refresh", addon.Watched("DR sync", sync))
+		-- The tracking and its every-frame display start together; in the step test (TaintWatch.lua)
+		-- only when their step comes.
+		function addon.StartDR()
+			if addon.drRunning then return end
+			addon.drRunning = true
+			DR.StartSources()
+			driver:SetScript("OnUpdate", addon.Watched("DR display OnUpdate", tick))
+		end
+		if addon.TestAllows("dr") then addon.StartDR() end
 	end))
 end))

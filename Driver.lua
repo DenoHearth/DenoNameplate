@@ -17,12 +17,14 @@ local suppressed = setmetatable({}, { __mode = "k" })
 -- those runs shared their event batch with the stance bar, which was blocked (2026-10-19; gone
 -- without Deno Nameplate). Only the target and soft-target events stay, for the soft-target
 -- icon. The client registers the plate's events again when it hands the plate a new unit.
+local SOFT_TARGET_EVENTS = { "PLAYER_TARGET_CHANGED", "PLAYER_SOFT_FRIEND_CHANGED", "PLAYER_SOFT_ENEMY_CHANGED" }
+
 local function Silence(unitFrame)
 	if unitFrame:IsProtected() then return end
 	unitFrame:UnregisterAllEvents()
-	unitFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-	unitFrame:RegisterEvent("PLAYER_SOFT_FRIEND_CHANGED")
-	unitFrame:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+	if ns.TestAllows("reregister") then
+		for _, event in ipairs(SOFT_TARGET_EVENTS) do unitFrame:RegisterEvent(event) end
+	end
 	local castBar = unitFrame.castBar or (unitFrame.CastBarsContainer and unitFrame.CastBarsContainer.castBar)
 	if castBar and not castBar:IsForbidden() then castBar:UnregisterAllEvents() end
 end
@@ -44,14 +46,33 @@ local function Usable(frame)
 		and type(frame.GetAlpha) == "function" and type(frame.SetAlpha) == "function"
 end
 
-holder:SetScript("OnUpdate", ns.Watched("Driver holder OnUpdate", function()
+function ns.StartHolder()
+	holder:SetScript("OnUpdate", ns.Watched("Driver holder OnUpdate", function()
+		for frame, on in pairs(suppressed) do
+			if on and Usable(frame) then
+				local alpha = frame:GetAlpha()
+				if issecretvalue(alpha) or alpha > 0 then frame:SetAlpha(0) end
+			end
+		end
+	end))
+end
+
+-- Step test (TaintWatch.lua): the target events go back on the plates already held, and the click
+-- area and stacking frame onto the plates already shown, when their step comes.
+function ns.ReregisterSilenced()
 	for frame, on in pairs(suppressed) do
-		if on and Usable(frame) then
-			local alpha = frame:GetAlpha()
-			if issecretvalue(alpha) or alpha > 0 then frame:SetAlpha(0) end
+		if on and Usable(frame) and not frame:IsProtected() then
+			for _, event in ipairs(SOFT_TARGET_EVENTS) do frame:RegisterEvent(event) end
 		end
 	end
-end))
+end
+
+function ns.ApplyHitAreas()
+	for _, plate in pairs(active) do
+		plate:UpdateStackBounds()
+		plate:UpdateHitArea()
+	end
+end
 
 local function IsTrue(value)
 	return not issecretvalue(value) and value and true or false
@@ -135,6 +156,8 @@ function ns.StartDriver()
 			end
 		end
 	end))
+
+	if ns.TestAllows("holder") then ns.StartHolder() end
 
 	-- Nameplates already on screen when the addon starts (after a /reload).
 	for _, base in ipairs(C_NamePlate.GetNamePlates()) do

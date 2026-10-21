@@ -6,6 +6,7 @@ local ADDON, ns = ...
 
 -- TaintWatch.lua (test build) wraps our handlers; without it they run as they are.
 ns.Watched = ns.Watched or function(_, fn) return fn end
+ns.TestAllows = ns.TestAllows or function() return true end
 
 ns.WHITE = "Interface\\Buttons\\WHITE8X8"
 
@@ -362,7 +363,7 @@ loader:SetScript("OnEvent", ns.Watched("Core loader", function(self, event, name
 			end
 			ns.db.general.ccGlowSeconds = ns.SetCCGlowSeconds(ns.db.general.ccGlowSeconds)
 			ns.ApplyClientSettings()
-			ns.StartDriver()
+			if ns.TestAllows("driver") then ns.StartDriver() end
 			ns.BuildOptions()
 			ns.CreateMinimapButton()
 		end))

@@ -359,7 +359,8 @@ end
 -- The debuff row is drawn by Blizzard's aura container: addon code may not read auras in
 -- combat. The container has to be built out of combat.
 function Plate:EnsureAuras()
-	if self.auras or not ns.db.general.showAuras or InCombatLockdown() or not HasAuraContainer() then
+	if self.auras or not ns.db.general.showAuras or InCombatLockdown() or not HasAuraContainer()
+		or not ns.TestAllows("auras") then
 		return
 	end
 	local container = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
@@ -627,7 +628,7 @@ end
 -- Forever: the bounds come from the frame's regions, not its size, hence the texture).
 function Plate:UpdateStackBounds()
 	local base = self.base
-	if not base.SetStackingBoundsFrame then return end
+	if not base.SetStackingBoundsFrame or not ns.TestAllows("hitarea") then return end
 	-- the client's stacking frame is left alone in a fight, like the hit frame; redone after it
 	if self.stackBounds and InCombatLockdown() then return end
 	if not self.stackBounds then
@@ -659,6 +660,7 @@ end
 -- handed over instead (as Plater, Tempus and ShestakUI do on Forever). Allowed for addon code
 -- out of combat and on the tick a unit is first assigned (CanChangeHitTestPoints).
 function Plate:UpdateHitArea()
+	if not ns.TestAllows("hitarea") then return end
 	local base = self.base
 	if not self.hit then self.hit = CreateFrame("Frame", nil, self) end
 	local hit, clickable = self.hit, ns.db.general.clickable
