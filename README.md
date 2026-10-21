@@ -27,6 +27,9 @@ around it. Written from scratch for World of Warcraft: Forever and its addon rul
   enemy plate, with the proc glow and a red number in its last seconds (3 by default, 1 to 10).
   Yours and every other player's, on every enemy with a visible nameplate.
 - **Execute colour:** an enemy bar turns orange under a health percent you set (25 by default).
+- **Incoming heals and absorb shields:** heals being cast show green after the health,
+  shields such as Power Word: Shield show white and striped, with a glow when the shield is
+  bigger than the missing health. Both work in combat.
 - **Removable enemy buffs:** magic buffs that can be dispelled, purged or stolen, in a blue
   frame beside the plate.
 - **Target:** a larger plate (adjustable scale) with a highlight and a bright border.
