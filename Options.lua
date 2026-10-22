@@ -86,8 +86,8 @@ local function ReloadGroupSettings()
 	local style = ns.db.general.style .. "/" .. ns.db.general.modernOn
 	if changed and reloadToldFor ~= style then
 		reloadToldFor = style
-		print("|cffffcc59Deno Nameplate:|r Style changed. Type |cffffffff/reload|r before you press "
-			.. "Defaults on the Friendly or Enemy page; until then Defaults puts back the sizes of the style you had before.")
+		ns.AskReload("Style changed. Reload before you press Defaults on the Friendly or Enemy page. "
+			.. "Until then, Defaults puts back the sizes of the style you had before.")
 	end
 end
 
@@ -100,8 +100,7 @@ local function Register(category, path, varType, label)
 	Settings.SetOnValueChangedCallback(variable, ns.Refresh)
 	if path[1] == "general" and path[2] == "pet" and key == "enabled" then
 		Settings.SetOnValueChangedCallback(variable, function()
-			print("|cffffcc59Deno Nameplate:|r Type |cffffffff/reload|r to switch the demon frame "
-				.. (ns.db.general.pet.enabled and "on." or "off."))
+			ns.AskReload("Reload to switch the demon frame " .. (ns.db.general.pet.enabled and "on." or "off."))
 		end)
 	end
 	if key == "style" or key == "modernOn" then

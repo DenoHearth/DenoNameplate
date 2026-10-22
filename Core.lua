@@ -4,6 +4,8 @@
 -- from the API straight into a widget, a curve or a formatter, never through a Lua operator.
 local ADDON, ns = ...
 
+ns.TITLE = "Deno Nameplate"
+
 ns.WHITE = "Interface\\Buttons\\WHITE8X8"
 
 -- Largest value the client accepts for nameplateMaxDistance (0-60 yards).

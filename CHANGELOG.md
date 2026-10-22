@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.1 — 2026-10-23
+
+- Messages that ask for a reload now come as a small window with a "Reload now" button and a "Later" button, instead of a line in chat (style change, demon frame on or off, pet buttons reset)
+
 ## v1.6.0 — 2026-10-23
 
 - New: demon frame for your pet, on by default (General page, "Show Demon Frame"). The pet frame's own round portrait and ring, a wider health bar with the pet's name and health on it, its stance (Aggressive, Defensive, Passive) above, a thin mana line, and a cast bar under it with spell name, icon and time left. Left-click targets the pet, right-click opens its menu. It replaces the game's pet frame; switching it off or on takes effect after /reload

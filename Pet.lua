@@ -437,7 +437,7 @@ end
 -- Options: put both pieces back where the game had them.
 function ns.ResetPetPositions()
 	if InCombatLockdown() then
-		print("|cffffcc59Deno Nameplate:|r Leave combat first, then reset the demon frame and pet buttons.")
+		ns.Notice("Leave combat first, then reset the demon frame and pet buttons.")
 		return
 	end
 	local pet = ns.db.general.pet
@@ -446,6 +446,6 @@ function ns.ResetPetPositions()
 	pet.barPosition = nil
 	if frame then PlaceFrame() end
 	if hadBar then
-		print("|cffffcc59Deno Nameplate:|r Pet buttons go back to the game's spot after |cffffffff/reload|r.")
+		ns.AskReload("The demon frame is back in its place. The pet buttons go back to the game's spot after a reload.")
 	end
 end
