@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Deno Nameplate
-## Notes: Clean, compact nameplates for WoW: Forever with health text, cast bars, level and quest icons, and full size and font options.
+## Notes: Clean, compact nameplates for WoW: Forever with health text, cast bars, level and quest icons, full size and font options, and a demon frame with cast bar for your pet.
 ## Author: Deniz
-## Version: 1.5.1
+## Version: 1.6.0
 ## Category: Unit Frames
 ## SavedVariables: DenoNameplateDB
 ## OptionalDeps: LibSharedMedia-3.0
@@ -17,4 +17,5 @@ Plate.lua
 Driver.lua
 DR\Display.lua
 Minimap.lua
+Pet.lua
 Options.lua

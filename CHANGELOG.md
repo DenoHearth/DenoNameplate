@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.6.0 — 2026-10-23
+
+- New: demon frame for your pet, on by default (General page, "Show Demon Frame"). The pet frame's own round portrait and ring, a wider health bar with the pet's name and health on it, its stance (Aggressive, Defensive, Passive) above, a thin mana line, and a cast bar under it with spell name, icon and time left. Left-click targets the pet, right-click opens its menu. It replaces the game's pet frame; switching it off or on takes effect after /reload
+- New: hold Ctrl out of combat and a blue box shows over the demon frame and over the pet action bar. Drag a box with the left mouse button to move that piece; the position is kept. "Ctrl + Drag To Move" switches this off, "Reset Demon Frame And Pet Buttons" puts both back where the game has them. The pet bar stays the game's own, so its buttons are changed the usual way
+
 ## v1.5.1 — 2026-10-22
 
 - Fixed: "DenoNameplate was forbidden from calling UNKNOWN()" every time a spell button was clicked with the mouse (key presses were fine). The Friendly and Enemy options handed the game's settings panel a function as their default value; the game ran it inside its own protected setup, and every mouse click on an action button read that setting list afterwards. The defaults are now plain values

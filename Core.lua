@@ -63,6 +63,8 @@ ns.defaults = {
 		hideWorldNames = false, -- the game's own floating names; off: the addon never touches them unless he switches this on
 		showBox = false,
 		minimap = { show = true, angle = 200 },
+		-- the demon frame (pet frame with cast bar) and Ctrl + drag for it and the pet buttons
+		pet = { enabled = true, ctrlMove = true },
 		clickable = { width = 0, height = 0, targetScale = 1.2 },
 	},
 	friendly = UnitGroup(false),
@@ -362,9 +364,11 @@ loader:SetScript("OnEvent", function(self, event, name)
 			ns.StartDriver()
 			ns.BuildOptions()
 			ns.CreateMinimapButton()
+			ns.StartPetFrame()
 		end)
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if pendingClientSettings then ns.ApplyClientSettings() end
+		if ns.petStartPending then ns.StartPetFrame() end
 		ns.AfterCombat()
 	end
 end)

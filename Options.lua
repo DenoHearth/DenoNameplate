@@ -98,6 +98,12 @@ local function Register(category, path, varType, label)
 	local tbl, key, default, variable = Resolve(path)
 	local setting = Settings.RegisterAddOnSetting(category, variable, key, tbl, varType, label, default)
 	Settings.SetOnValueChangedCallback(variable, ns.Refresh)
+	if path[1] == "general" and path[2] == "pet" and key == "enabled" then
+		Settings.SetOnValueChangedCallback(variable, function()
+			print("|cffffcc59Deno Nameplate:|r Type |cffffffff/reload|r to switch the demon frame "
+				.. (ns.db.general.pet.enabled and "on." or "off."))
+		end)
+	end
 	if key == "style" or key == "modernOn" then
 		Settings.SetOnValueChangedCallback(variable, ReloadGroupSettings)
 	end
@@ -271,6 +277,17 @@ function ns.BuildOptions()
 
 	Toggle(category, { "general", "minimap", "show" }, "Show Minimap Button",
 		"Show the Deno Nameplate button on the minimap.")
+
+	Header(layout, "Demon Frame")
+	Toggle(category, { "general", "pet", "enabled" }, "Show Demon Frame",
+		"Your pet in the pet frame's own art with a wider health bar (name and health on it, stance above), "
+		.. "a mana line and a cast bar under it. Replaces the game's pet frame. Takes effect after /reload.")
+	Toggle(category, { "general", "pet", "ctrlMove" }, "Ctrl + Drag To Move",
+		"Hold Ctrl out of combat: a blue box shows over the demon frame and over the pet buttons. "
+		.. "Drag a box with the left mouse button to move that piece. The game remembers where you put them.")
+	layout:AddInitializer(CreateSettingsButtonInitializer("Reset Demon Frame And Pet Buttons", "Reset",
+		function() ns.ResetPetPositions() end,
+		"Put the demon frame and the pet buttons back where the game has them.", true))
 
 	Header(layout, "Size")
 	Range(category, { "general", "clickable", "height" }, "Clickable-Height",
