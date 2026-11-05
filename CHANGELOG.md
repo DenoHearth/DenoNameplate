@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.4 — 2026-11-05
+
+- Pet NamePlates: only your own pet has one by default, also when the game's setting for friendly players' pets was already on. New switch "Show All Pets" on the General page (off by default) gives other players' pets a NamePlate too
+
 ## v1.6.3 — 2026-11-05
 
 - New: your own pet gets a NamePlate. Switch: "Show My Pet's NamePlate" on the General page, on by default. It turns on the game's setting for friendly players' pets (off by default in the game) and keeps other players' pets without a plate; switched off, the game's setting goes back to what it was

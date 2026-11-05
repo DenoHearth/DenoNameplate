@@ -272,8 +272,10 @@ function ns.BuildOptions()
 		.. "Off: the first name only. Characters without a last name and creatures are not changed.")
 	Toggle(category, { "general", "showMyPetPlate" }, "Show My Pet's NamePlate",
 		"On (default): your own pet gets a NamePlate. This switches on the game's setting for friendly "
-		.. "players' pets; other players' pets stay without one unless that setting was already on. "
-		.. "Off: the game's setting goes back to what it was. Applied out of combat.")
+		.. "players' pets. With this and Show All Pets off, the game's setting goes back to what it was. "
+		.. "Applied out of combat.")
+	Toggle(category, { "general", "showAllPets" }, "Show All Pets",
+		"On: other players' pets get a NamePlate too. Off (default): only your own pet has one.")
 	Toggle(category, { "general", "hideWorldNames" }, "Hide The Game's Large Names",
 		"The game writes a large name over every player and creature that has no NamePlate (too far away or out of sight). "
 		.. "On: players and mobs are named on their NamePlate only; quest givers, vendors and trainers keep their name. "

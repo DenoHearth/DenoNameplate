@@ -57,12 +57,17 @@ local function IsTrue(value)
 	return not issecretvalue(value) and value and true or false
 end
 
--- Another player's pet, while only our option turned the game's pet plates on (Core.lua,
--- ApplyPetPlate): he asked for his own pet's plate, not for every hunter pet in town.
-local function OthersPet(unit)
+-- A pet whose plate the pet options leave out (Core.lua, ApplyPetPlate): other players' pets
+-- unless "Show All Pets" is on (his ask, 2026-11-05: only my pet by default), his own pet unless
+-- "Show My Pet's NamePlate" is on. Only while one of them has the game's pet plates on.
+local function PetHidden(unit)
 	local general = ns.db and ns.db.general
-	if not general or not general.showMyPetPlate or general.petPlateBefore ~= "0" then return false end
-	return type(UnitIsOtherPlayersPet) == "function" and IsTrue(UnitIsOtherPlayersPet(unit))
+	if not general or general.petPlateBefore == nil then return false end
+	if not general.showAllPets and type(UnitIsOtherPlayersPet) == "function"
+		and IsTrue(UnitIsOtherPlayersPet(unit)) then
+		return true
+	end
+	return not general.showMyPetPlate and IsTrue(UnitIsUnit(unit, "pet"))
 end
 
 local function OnAdded(unit)
@@ -77,7 +82,8 @@ local function OnAdded(unit)
 		if unitFrame and not forbidden then Suppress(unitFrame, false) end
 		return
 	end
-	if unitFrame and OthersPet(unit) then
+	if unitFrame and PetHidden(unit) then
+		active[unit] = nil
 		if plates[base] then plates[base]:ClearUnit() end
 		Suppress(unitFrame, true)
 		return
@@ -104,6 +110,17 @@ ns.active, ns.OnUnitAdded, ns.OnUnitRemoved = active, OnAdded, OnRemoved
 
 function ns.UpdateAllPlates()
 	for _, plate in pairs(active) do plate:Refresh() end
+end
+
+-- After a pet option changed: pets already on screen get or lose their plate now, not only when
+-- the game hands their plate out again.
+function ns.RecheckPets()
+	for i = 1, 40 do
+		local unit = "nameplate" .. i
+		if IsTrue(UnitExists(unit)) and IsTrue(UnitPlayerControlled(unit)) and not IsTrue(UnitIsPlayer(unit)) then
+			OnAdded(unit)
+		end
+	end
 end
 
 -- Aura rows cannot be built in combat; plates first shown mid-fight get theirs here.
