@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.7 — 2026-11-05
+
+- Enemy players' pets now always get a NamePlate. Since 1.6.4 they had none at all (neither ours nor the game's) while "Show All Pets" was off, because they were treated like friendly players' pets. "Show All Pets" now only decides about friendly players' pets
+
 ## v1.6.6 — 2026-11-05
 
 - Crowd control icon, debuffs and diminishing returns now show on a player you duel. Forever keeps a duel opponent a friend to the game's friend check while making them attackable, so the NamePlate stayed a friendly one with all three switched off. A plate now counts as an enemy as soon as you can attack the unit, also when a duel starts or ends while the plate is on screen

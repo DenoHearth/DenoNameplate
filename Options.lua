@@ -275,7 +275,8 @@ function ns.BuildOptions()
 		.. "players' pets. With this and Show All Pets off, the game's setting goes back to what it was. "
 		.. "Applied out of combat.")
 	Toggle(category, { "general", "showAllPets" }, "Show All Pets",
-		"On: other players' pets get a NamePlate too. Off (default): only your own pet has one.")
+		"On: friendly players' pets get a NamePlate too. Off (default): of the friendly pets only your own has one. "
+		.. "Enemy players' pets always have a NamePlate.")
 	Toggle(category, { "general", "hideWorldNames" }, "Hide The Game's Large Names",
 		"The game writes a large name over every player and creature that has no NamePlate (too far away or out of sight). "
 		.. "On: players and mobs are named on their NamePlate only; quest givers, vendors and trainers keep their name. "

@@ -57,14 +57,16 @@ local function IsTrue(value)
 	return not issecretvalue(value) and value and true or false
 end
 
--- A pet whose plate the pet options leave out (Core.lua, ApplyPetPlate): other players' pets
--- unless "Show All Pets" is on (his ask, 2026-11-05: only my pet by default), his own pet unless
+-- A pet whose plate the pet options leave out (Core.lua, ApplyPetPlate): other players' friendly
+-- pets unless "Show All Pets" is on (his ask, 2026-11-05: only my pet by default), his own pet unless
 -- "Show My Pet's NamePlate" is on. Only while one of them has the game's pet plates on.
+-- Enemy players' pets always keep their plate (his ask, 2026-11-05): UnitIsOtherPlayersPet has no
+-- faction check, so until 1.6.7 an enemy hunter's or warlock's pet had no plate at all.
 local function PetHidden(unit)
 	local general = ns.db and ns.db.general
 	if not general or general.petPlateBefore == nil then return false end
 	if not general.showAllPets and type(UnitIsOtherPlayersPet) == "function"
-		and IsTrue(UnitIsOtherPlayersPet(unit)) then
+		and IsTrue(UnitIsOtherPlayersPet(unit)) and not IsTrue(UnitCanAttack("player", unit)) then
 		return true
 	end
 	return not general.showMyPetPlate and IsTrue(UnitIsUnit(unit, "pet"))
