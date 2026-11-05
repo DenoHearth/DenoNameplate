@@ -290,9 +290,6 @@ function ns.BuildOptions()
 	Toggle(category, { "general", "pet", "enabled" }, "Show Demon Frame",
 		"Your pet in the pet frame's own art with a wider health bar (name and health on it, stance above), "
 		.. "a mana line and a cast bar under it. Replaces the game's pet frame. Takes effect after /reload.")
-	Toggle(category, { "general", "pet", "ctrlMove" }, "Ctrl + Drag To Move",
-		"Hold Ctrl out of combat: a blue box shows over the demon frame and over the pet buttons. "
-		.. "Drag a box with the left mouse button to move that piece. The game remembers where you put them.")
 	layout:AddInitializer(CreateSettingsButtonInitializer("Reset Demon Frame And Pet Buttons", "Reset",
 		function() ns.ResetPetPositions() end,
 		"Put the demon frame and the pet buttons back where the game has them.", true))

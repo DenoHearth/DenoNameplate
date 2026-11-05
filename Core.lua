@@ -68,8 +68,8 @@ ns.defaults = {
 		showAllPets = false,    -- other players' pets too (his ask, 2026-11-05: an option, off by default)
 		showBox = false,
 		minimap = { show = true, angle = 200 },
-		-- the demon frame (pet frame with cast bar) and Ctrl + drag for it and the pet buttons
-		pet = { enabled = true, ctrlMove = true },
+		-- the demon frame (pet frame with cast bar); Alt + drag moves it and the pet buttons (always on)
+		pet = { enabled = true },
 		clickable = { width = 0, height = 0, targetScale = 1.2 },
 	},
 	friendly = UnitGroup(false),

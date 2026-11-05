@@ -1,7 +1,8 @@
 -- Demon frame: the pet frame in Blizzard's own art with a wider health bar (name and health on it,
 -- stance above), a thin mana line and a cast bar under it. His design, 2026-10-23 (simulator
--- mock-ups _mock_db_tw / _mock_db_cb / _mock_db_move). Holding Ctrl out of combat shows a blue box
--- over the demon frame and over Blizzard's pet action bar; dragging a box moves that piece.
+-- mock-ups _mock_db_tw / _mock_db_cb / _mock_db_move). Holding Alt out of combat lays an invisible
+-- drag area over the demon frame and over Blizzard's pet action bar; Alt + left drag moves that piece.
+-- No box, no label: his word 2026-11-05 (was Ctrl with a blue box and a switch in Options).
 --
 -- Patterns taken from shipping Forever addons:
 --   * Blizzard's pet frame is switched off the way oUF does it in ShestakUI_Forever
@@ -29,7 +30,7 @@ end
 local PET_MODES = { PET_MODE_AGGRESSIVE = true, PET_MODE_DEFENSIVE = true, PET_MODE_PASSIVE = true, PET_MODE_ASSIST = true }
 
 local frame              -- the demon frame (a secure unit button: click targets the pet)
-local movers = {}        -- name -> blue box shown while Ctrl is held
+local movers = {}        -- name -> invisible drag area shown while Alt is held
 local barHooked = false
 
 local function Plain(value)
@@ -301,28 +302,29 @@ local function HookBar()
 end
 
 ------------------------------------------------------------------------------------------
--- Ctrl + drag
+-- Alt + drag
 ------------------------------------------------------------------------------------------
-local function Mover(name, label, target, onDrop)
+local function Mover(name, target, onDrop)
 	local mover = CreateFrame("Button", nil, UIParent)
 	mover:SetFrameStrata("DIALOG")
 	mover:SetMovable(true)
 	mover:SetClampedToScreen(true)
 	mover:RegisterForDrag("LeftButton")
-	mover:Hide()
-	local fill = mover:CreateTexture(nil, "BACKGROUND")
-	fill:SetAllPoints()
-	fill:SetColorTexture(0.52, 0.80, 1.00, 0.15)
-	Edge(mover, mover, mover:GetFrameLevel() + 1)
-	local text = mover:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	text:SetFont(ns.FetchFont("Friz Quadrata TT"), 9, "OUTLINE")
-	text:SetPoint("BOTTOMLEFT", mover, "TOPLEFT", 2, 2)
-	text:SetText(label .. "  -  Ctrl + drag to move")
-	text:SetTextColor(0.52, 0.80, 1.00)
-	mover:SetScript("OnDragStart", function(self)
-		if not InCombatLockdown() then self:StartMoving() end
-	end)
-	mover:SetScript("OnDragStop", function(self)
+	mover:Hide()   -- nothing drawn: the piece itself is what he sees moving
+	-- The drag area is invisible, so the piece follows it while dragging; saved on drop.
+	local function Follow(self)
+		local t = target()
+		local cx, cy = self:GetCenter()
+		if not t or not cx or InCombatLockdown() then return end
+		local ratio = self:GetEffectiveScale() / UIParent:GetEffectiveScale()
+		applyingBar = true
+		PlaceAt(t, { x = cx * ratio, y = cy * ratio })
+		applyingBar = false
+	end
+	local function Drop(self)
+		if not self.dragging then return end
+		self.dragging = false
+		self:SetScript("OnUpdate", nil)
 		self:StopMovingOrSizing()
 		if InCombatLockdown() then return end
 		local cx, cy = self:GetCenter()
@@ -330,7 +332,16 @@ local function Mover(name, label, target, onDrop)
 		local ratio = self:GetEffectiveScale() / UIParent:GetEffectiveScale()
 		onDrop({ x = cx * ratio, y = cy * ratio })
 		self.place()
+	end
+	mover:SetScript("OnDragStart", function(self)
+		if InCombatLockdown() then return end
+		self.dragging = true
+		self:StartMoving()
+		self:SetScript("OnUpdate", Follow)
 	end)
+	mover:SetScript("OnDragStop", Drop)
+	-- Alt let go (or combat) before the mouse button: keep where it was dragged to.
+	mover:SetScript("OnHide", Drop)
 	mover.place = function()
 		local t = target()
 		if not t then return end
@@ -347,7 +358,7 @@ local function Mover(name, label, target, onDrop)
 end
 
 local function ShowMovers(show)
-	show = show and not InCombatLockdown() and ns.db.general.pet.ctrlMove
+	show = show and not InCombatLockdown()
 	for name, mover in pairs(movers) do
 		local target = name == "frame" and frame or PetActionBar
 		if show and target and target:IsVisible() then
@@ -360,11 +371,11 @@ local function ShowMovers(show)
 end
 
 local function BuildMovers()
-	Mover("frame", "Demon frame", function() return frame end, function(position)
+	Mover("frame", function() return frame end, function(position)
 		ns.db.general.pet.framePosition = position
 		PlaceFrame()
 	end)
-	Mover("bar", "Pet buttons", function() return PetActionBar end, function(position)
+	Mover("bar", function() return PetActionBar end, function(position)
 		ns.db.general.pet.barPosition = position
 		HookBar()
 		PlaceBar()
@@ -405,7 +416,7 @@ function ns.StartPetFrame()
 	watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
 	watcher:SetScript("OnEvent", function(_, event, key, down)
 		if event == "MODIFIER_STATE_CHANGED" then
-			if key == "LCTRL" or key == "RCTRL" then ShowMovers(down == 1) end
+			if key == "LALT" or key == "RALT" then ShowMovers(down == 1) end
 		elseif event == "PLAYER_REGEN_DISABLED" then
 			ShowMovers(false)
 		elseif event == "PLAYER_REGEN_ENABLED" then

@@ -51,9 +51,9 @@ around it. Written from scratch for World of Warcraft: Forever and its addon rul
   portrait, with a wider health bar carrying its name and health, its stance above, a thin
   mana line and a cast bar under it (spell name, icon, time left). Click it to target the pet,
   right-click for its menu.
-- **Ctrl + drag:** hold Ctrl out of combat and the demon frame and the pet action bar light up
-  blue; drag either one with the left mouse button to move it. The pet bar keeps the game's
-  own buttons, so you change them the usual way (drag spells from the spellbook).
+- **Alt + drag:** out of combat, hold Alt and drag the demon frame or the pet action bar with
+  the left mouse button to move it. Nothing extra is drawn on screen. The pet bar keeps the
+  game's own buttons, so you change them the usual way (drag spells from the spellbook).
 
 ## Install
 

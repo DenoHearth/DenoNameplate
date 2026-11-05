@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.5 — 2026-11-05
+
+- Demon frame and pet buttons now move with Alt + left drag instead of Ctrl + drag. No blue box or label shows any more; the piece itself follows the mouse. The "Ctrl + Drag To Move" switch is gone from the options (moving is always available out of combat); "Reset Demon Frame And Pet Buttons" stays
+
 ## v1.6.4 — 2026-11-05
 
 - Pet NamePlates: only your own pet has one by default, also when the game's setting for friendly players' pets was already on. New switch "Show All Pets" on the General page (off by default) gives other players' pets a NamePlate too
