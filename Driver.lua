@@ -128,12 +128,15 @@ function ns.AfterCombat()
 	for unit, plate in pairs(active) do
 		plate:UpdateStackBounds()
 		plate:UpdateHitArea()
-		if not plate.auras then
+		-- every aura container the plate is missing, each handed the unit (until 1.6.6 only the
+		-- debuff row got it, so a plate first shown in a fight had no crowd control icon until the
+		-- game gave it a new unit)
+		if not plate.auras or not plate.cc or not plate.purge then
 			plate:EnsureAuras()
-			if plate.auras then
-				plate.auras:SetUnit(unit)
-				plate:ApplyOptions()
+			for _, key in ipairs({ "auras", "cc", "ccGlow", "purge" }) do
+				if plate[key] then plate[key]:SetUnit(unit) end
 			end
+			plate:ApplyOptions()
 		end
 	end
 end

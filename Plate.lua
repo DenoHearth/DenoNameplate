@@ -37,6 +37,18 @@ local function Plain(value)
 	return value
 end
 
+-- Friend or foe for the plate. On Forever a player you duel stays a friend to UnitIsFriend while
+-- UnitCanAttack turns true (the Forever addons classicuiforever, EllesmereUI and Forever++ handle
+-- the same case), and the client does not hand the plate out again when the duel starts. Taking
+-- UnitIsFriend alone left the duel opponent on a friendly plate: no crowd control icon, no
+-- debuffs, no diminishing returns (his report, 2026-11-05: "I cant see the fear icon on players
+-- but on mob it works"). Blizzard's own plates make the same exception for cross-faction party
+-- members (Blizzard_NamePlateUnitFrame.lua, UpdateIsFriend). A secret answer counts as friend.
+local function IsFriendly(unit)
+	if not Plain(UnitIsFriend("player", unit)) then return false end
+	return not Plain(UnitCanAttack("player", unit))
+end
+
 -- Health percent arrives as 0-1; this curve scales it to 0-100 inside the client.
 local percentCurve = C_CurveUtil.CreateCurve()
 percentCurve:SetType(Enum.LuaCurveType.Linear)
@@ -359,9 +371,17 @@ end
 -- The debuff row is drawn by Blizzard's aura container: addon code may not read auras in
 -- combat. The container has to be built out of combat.
 function Plate:EnsureAuras()
-	if self.auras or not ns.db.general.showAuras or InCombatLockdown() or not HasAuraContainer() then
-		return
-	end
+	if InCombatLockdown() or not HasAuraContainer() then return end
+	if not self.auras and ns.db.general.showAuras then self:EnsureDebuffs() end
+	-- the crowd control icon and the removable buffs have their own switches: built even while the
+	-- debuff row is off (until 1.6.6 they came only with the debuff row)
+	self:EnsureCC()
+	self:EnsurePurge()
+end
+
+-- The small row of your own debuffs above the plate.
+function Plate:EnsureDebuffs()
+	if self.auras then return end
 	local container = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
 	self.auras = container
 	container:SetSize(1, 1)
@@ -398,8 +418,6 @@ function Plate:EnsureAuras()
 			button:SetDurationText(time, {})
 		end,
 	})
-	self:EnsureCC()
-	self:EnsurePurge()
 end
 
 -- Enemy buffs you can take off: the magic ones, in a blue frame beside the plate.
@@ -697,7 +715,11 @@ end
 function Plate:RegisterEvents()
 	local unit = self.unit
 	self:UnregisterAllEvents()
-	for _, event in ipairs(UNIT_EVENTS) do self:RegisterUnitEvent(event, unit) end
+	for _, event in ipairs(UNIT_EVENTS) do
+		-- our own faction or PvP state changing turns plates friend or foe too (Blizzard does the same)
+		if event == "UNIT_FACTION" then self:RegisterUnitEvent(event, unit, "player")
+		else self:RegisterUnitEvent(event, unit) end
+	end
 	for event in pairs(CAST_EVENTS) do self:RegisterUnitEvent(event, unit) end
 	if self.modern then
 		for _, event in ipairs(POWER_EVENTS) do self:RegisterUnitEvent(event, unit) end
@@ -732,7 +754,7 @@ end
 function Plate:Refresh()
 	local unit = self.unit
 	if not unit then return end
-	self.isFriend = Plain(UnitIsFriend("player", unit)) and true or false
+	self.isFriend = IsFriendly(unit)
 	self:ApplyOptions()
 	if self.eventsModern ~= self.modern then self:RegisterEvents() end
 	self:UpdatePower()
@@ -767,6 +789,9 @@ function Plate:OnEvent(event)
 	elseif event == "UNIT_NAME_UPDATE" then
 		self:UpdateName()
 	elseif event == "UNIT_FACTION" then
+		self:Refresh()
+	elseif event == "UNIT_FLAGS" and self.unit and IsFriendly(self.unit) ~= self.isFriend then
+		-- a duel starting or ending: the whole plate turns enemy or friend
 		self:Refresh()
 	elseif event == "UNIT_FLAGS" or event == "UNIT_THREAT_LIST_UPDATE" then
 		self:UpdateColor()

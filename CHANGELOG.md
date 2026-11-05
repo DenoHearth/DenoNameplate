@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.6.6 — 2026-11-05
+
+- Crowd control icon, debuffs and diminishing returns now show on a player you duel. Forever keeps a duel opponent a friend to the game's friend check while making them attackable, so the NamePlate stayed a friendly one with all three switched off. A plate now counts as an enemy as soon as you can attack the unit, also when a duel starts or ends while the plate is on screen
+- The crowd control icon now shows on a NamePlate first seen during a fight once the fight ends, and also while "Show Auras" is off
+
 ## v1.6.5 — 2026-11-05
 
 - Demon frame and pet buttons now move with Alt + left drag instead of Ctrl + drag. No blue box or label shows any more; the piece itself follows the mouse. The "Ctrl + Drag To Move" switch is gone from the options (moving is always available out of combat); "Reset Demon Frame And Pet Buttons" stays
