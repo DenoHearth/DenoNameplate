@@ -20,6 +20,8 @@ around it. Written from scratch for World of Warcraft: Forever and its addon rul
 - **Level indicator** colored by difficulty, a skull for bosses, gold and silver icons for
   elite and rare-elite units.
 - **Raid target icon** and **quest objective icon** (left, right or above the name).
+- **Last names:** players show their Forever last name after the first name (on by default,
+  "Show Last Names" on the General page).
 - **Colors:** class colors for players, the game's reaction colors for everything else,
   grey for units tapped by someone else, red plus a highlight on enemies you have threat on.
 - **Your debuffs** above enemy nameplates.
@@ -68,7 +70,7 @@ Open them with `/dnp`, `/denonameplate`, or the minimap button.
 
 | Page | Settings |
 |---|---|
-| General | Style (Standard or Modern), Modern Style On, Modern Power Bar, Show My Debuffs, View Distance, Show Minimap Button, Clickable Height and Width, Show Clickable Box, Target Scale |
+| General | Style (Standard or Modern), Modern Style On, Modern Power Bar, Show My Debuffs, Show Last Names, View Distance, Show Minimap Button, Clickable Height and Width, Show Clickable Box, Target Scale |
 | Friendly | Name (show, font, size, outline); Health (Name Only, width, height, text format, show text, font, bar texture, class color, background color); Cast Bar (enabled, font, texture, height); Level Indicator (players, NPCs); Objective Icons (show, scale, anchor) |
 | Enemy | The same groups as Friendly, without Name Only, and Enemy Player Color in place of Background Color |
 

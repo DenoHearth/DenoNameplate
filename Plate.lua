@@ -919,10 +919,24 @@ function Plate:UpdateColor()
 	end
 end
 
+-- Forever characters have a last name. UnitName gives it as its second value (Blizzard's Camelot
+-- NameUtil joins the two the same way, with this separator: a space). Until 1.6.2 only the first
+-- value reached the plate. A secret part goes into the text as it is: never compared, never tested
+-- as a boolean; joining with .. is allowed and gives a secret the font string accepts.
+local SURNAME_SEPARATOR = Constants and Constants.CharacterNameSeparatorConsts
+	and Constants.CharacterNameSeparatorConsts.CHARACTERNAME_SURNAME_SEPARATOR or " "
+
+local function DisplayName(unit)
+	local first, surname = UnitName(unit)
+	if not ns.db.general.showSurname or not first or not surname then return first end
+	if not issecretvalue(surname) and surname == "" then return first end
+	return first .. SURNAME_SEPARATOR .. surname
+end
+
 function Plate:UpdateName()
 	local unit, name = self.unit, self.name
 	if not self.options.name.displayName then return end
-	name:SetText(UnitName(unit))
+	name:SetText(DisplayName(unit))
 	local isPlayer = Plain(UnitIsPlayer(unit))
 	local classColor = isPlayer and self.isFriend and self.options.health.useClassColor and ClassColor(unit)
 	if self:IsTapDenied() or Plain(UnitIsDeadOrGhost(unit)) then

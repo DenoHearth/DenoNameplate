@@ -267,6 +267,9 @@ function ns.BuildOptions()
 		"An enemy health bar turns orange once its health is under the percent below.")
 	Range(category, { "general", "executePercent" }, "Execute Percent",
 		"Health percent under which the bar turns orange. 25 suits Drain Soul.", 5, 50, 5)
+	Toggle(category, { "general", "showSurname" }, "Show Last Names",
+		"Forever characters have a last name. On (default): player NamePlates show the first and the last name. "
+		.. "Off: the first name only. Characters without a last name and creatures are not changed.")
 	Toggle(category, { "general", "hideWorldNames" }, "Hide The Game's Large Names",
 		"The game writes a large name over every player and creature that has no NamePlate (too far away or out of sight). "
 		.. "On: players and mobs are named on their NamePlate only; quest givers, vendors and trainers keep their name. "

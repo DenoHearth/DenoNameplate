@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.2 — 2026-11-05
+
+- New: player NamePlates show the Forever last name after the first name. Until now only the first name was shown. Switch: "Show Last Names" on the General page, on by default (also for settings saved by an older version)
+
 ## v1.6.1 — 2026-10-23
 
 - Messages that ask for a reload now come as a small window with a "Reload now" button and a "Later" button, instead of a line in chat (style change, demon frame on or off, pet buttons reset)

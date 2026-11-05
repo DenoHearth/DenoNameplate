@@ -62,6 +62,7 @@ ns.defaults = {
 		showAbsorbs = true,     -- absorb shields, striped after its health, glow when over full
 		executeColor = true,    -- enemy health bar turns orange in execute range
 		executePercent = 25,
+		showSurname = true,     -- Forever's last names after players' first names (his ask, 2026-11-05: on by default)
 		hideWorldNames = false, -- the game's own floating names; off: the addon never touches them unless he switches this on
 		showBox = false,
 		minimap = { show = true, angle = 200 },
