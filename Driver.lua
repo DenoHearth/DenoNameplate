@@ -57,6 +57,14 @@ local function IsTrue(value)
 	return not issecretvalue(value) and value and true or false
 end
 
+-- Another player's pet, while only our option turned the game's pet plates on (Core.lua,
+-- ApplyPetPlate): he asked for his own pet's plate, not for every hunter pet in town.
+local function OthersPet(unit)
+	local general = ns.db and ns.db.general
+	if not general or not general.showMyPetPlate or general.petPlateBefore ~= "0" then return false end
+	return type(UnitIsOtherPlayersPet) == "function" and IsTrue(UnitIsOtherPlayersPet(unit))
+end
+
 local function OnAdded(unit)
 	local base = C_NamePlate.GetNamePlateForUnit(unit)
 	if not base or base:IsForbidden() then return end
@@ -67,6 +75,11 @@ local function OnAdded(unit)
 	if forbidden or IsTrue(UnitIsUnit(unit, "player")) or IsTrue(UnitNameplateShowsWidgetsOnly(unit)) then
 		if plates[base] then plates[base]:ClearUnit() end
 		if unitFrame and not forbidden then Suppress(unitFrame, false) end
+		return
+	end
+	if unitFrame and OthersPet(unit) then
+		if plates[base] then plates[base]:ClearUnit() end
+		Suppress(unitFrame, true)
 		return
 	end
 	local plate = plates[base]

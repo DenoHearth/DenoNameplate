@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.3 — 2026-11-05
+
+- New: your own pet gets a NamePlate. Switch: "Show My Pet's NamePlate" on the General page, on by default. It turns on the game's setting for friendly players' pets (off by default in the game) and keeps other players' pets without a plate; switched off, the game's setting goes back to what it was
+
 ## v1.6.2 — 2026-11-05
 
 - New: player NamePlates show the Forever last name after the first name. Until now only the first name was shown. Switch: "Show Last Names" on the General page, on by default (also for settings saved by an older version)

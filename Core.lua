@@ -64,6 +64,7 @@ ns.defaults = {
 		executePercent = 25,
 		showSurname = true,     -- Forever's last names after players' first names (his ask, 2026-11-05: on by default)
 		hideWorldNames = false, -- the game's own floating names; off: the addon never touches them unless he switches this on
+		showMyPetPlate = true,  -- his ask, 2026-11-05: a NamePlate on his own pet, on by default
 		showBox = false,
 		minimap = { show = true, angle = 200 },
 		-- the demon frame (pet frame with cast bar) and Ctrl + drag for it and the pet buttons
@@ -231,6 +232,24 @@ local function ApplyWorldNames(general)
 	end
 end
 
+-- His own pet's NamePlate (his ask, 2026-11-05: "make an option so I can see it and have it on as
+-- default"). The game draws plates on friendly players' pets only with this setting on (default
+-- off). His value is kept and put back when the option is switched off; while the option turned
+-- it on, the driver keeps other players' pets without a plate (Driver.lua, OthersPet).
+local PET_CVAR = "nameplateShowFriendlyPlayerPets"
+
+local function ApplyPetPlate(general)
+	local current = C_CVar.GetCVar(PET_CVAR)
+	if current == nil then return end   -- not a setting on this client
+	if general.showMyPetPlate then
+		if general.petPlateBefore == nil then general.petPlateBefore = current end
+		if current ~= "1" then C_CVar.SetCVar(PET_CVAR, "1") end
+	elseif general.petPlateBefore ~= nil then
+		if current ~= general.petPlateBefore then C_CVar.SetCVar(PET_CVAR, general.petPlateBefore) end
+		general.petPlateBefore = nil
+	end
+end
+
 -- Clickable area, view distance and the game's own names. Refused in combat, so they wait for it to end.
 function ns.ApplyClientSettings()
 	if InCombatLockdown() then
@@ -247,6 +266,7 @@ function ns.ApplyClientSettings()
 		C_CVar.SetCVar("nameplateMaxDistance", general.maxDistance)
 	end
 	ApplyWorldNames(general)
+	ApplyPetPlate(general)
 	local clickable = general.clickable
 	if clickable.width > 0 and clickable.height > 0 then
 		local width, height = C_NamePlate.GetNamePlateSize()
