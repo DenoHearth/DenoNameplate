@@ -141,6 +141,8 @@ function ns.AfterCombat()
 			plate:ApplyOptions()
 		end
 	end
+	-- ready rows for plates the game first hands out in the next fight
+	ns.FillSpareAuras()
 end
 
 function ns.StartDriver()

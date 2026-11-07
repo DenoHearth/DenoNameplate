@@ -370,20 +370,16 @@ end
 
 -- The debuff row is drawn by Blizzard's aura container: addon code may not read auras in
 -- combat. The container has to be built out of combat.
-function Plate:EnsureAuras()
-	if InCombatLockdown() or not HasAuraContainer() then return end
-	if not self.auras and ns.db.general.showAuras then self:EnsureDebuffs() end
-	-- the crowd control icon and the removable buffs have their own switches: built even while the
-	-- debuff row is off (until 1.6.6 they came only with the debuff row)
-	self:EnsureCC()
-	self:EnsurePurge()
-end
+-- Plates the game first hands out in a fight (a new pull in a dungeon) used to get no rows
+-- until the fight ended (his report, 2026-11-07: "not all debuffs show all the time"). Rows are
+-- now built ahead, out of combat, and kept aside; such a plate takes a ready one.
+local SPARE_COUNT = 10
+local spareHolder = CreateFrame("Frame")
+spareHolder:Hide()
+local spares = { auras = {}, purge = {}, cc = {} }
 
--- The small row of your own debuffs above the plate.
-function Plate:EnsureDebuffs()
-	if self.auras then return end
-	local container = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
-	self.auras = container
+local function BuildDebuffs(parent)
+	local container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
 	container:SetSize(1, 1)
 	container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal)
 	container:SetFlowLayoutAnchorPoint("BOTTOMLEFT")
@@ -418,13 +414,12 @@ function Plate:EnsureDebuffs()
 			button:SetDurationText(time, {})
 		end,
 	})
+	return container
 end
 
 -- Enemy buffs you can take off: the magic ones, in a blue frame beside the plate.
-function Plate:EnsurePurge()
-	if self.purge then return end
-	local container = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
-	self.purge = container
+local function BuildPurge(parent)
+	local container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
 	container:SetSize(1, 1)
 	container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal)
 	container:SetFlowLayoutAnchorPoint("BOTTOMLEFT")
@@ -448,16 +443,14 @@ function Plate:EnsurePurge()
 			button:SetIcon(icon)
 		end,
 	})
+	return container
 end
 
--- The crowd control icon and, over it, the glow. Built out of combat with the debuff row.
-function Plate:EnsureCC()
-	if self.cc then return end
+-- The crowd control icon and, over it, the glow (a pair; the glow may be nil).
+local function BuildCC(parent)
 	local filters = { includeSpellIDs = ns.ccSpells }
-	local cc = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
-	self.cc = cc
+	local cc = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
 	cc:SetSize(CC_ICON, CC_ICON)
-	cc:SetFrameLevel(self:GetFrameLevel() + 6)
 	-- anybody's crowd control, not only ours: a mob another player feared is just as feared
 	cc:AddAuraSlot(CC_KEY, "HARMFUL", {
 		candidateFilters = filters,
@@ -481,12 +474,10 @@ function Plate:EnsureCC()
 			})
 		end,
 	})
-	if not ccGlowFormat then return end
-	local glow = CreateFrame("AuraContainer", nil, self, "CustomAuraContainerTemplate")
-	self.ccGlow = glow
+	if not ccGlowFormat then return cc end
+	local glow = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
 	glow:SetPoint("CENTER", cc, "CENTER")
 	glow:SetSize(CC_ICON, CC_ICON)
-	glow:SetFrameLevel(self:GetFrameLevel() + 10)
 	glow:AddAuraSlot(CC_KEY, "HARMFUL|PLAYER", {
 		candidateFilters = filters,
 		initializeFrame = function(button)
@@ -497,6 +488,61 @@ function Plate:EnsureCC()
 			button:SetDurationText(text, { binding = ccGlowBinding, textFormatter = ccGlowFormat })
 		end,
 	})
+	return cc, glow
+end
+
+local builders = { auras = BuildDebuffs, purge = BuildPurge, cc = BuildCC }
+
+-- A row for this plate: built now out of combat, else a spare built earlier (nil if none left).
+local function Take(kind, plate)
+	if not InCombatLockdown() then return builders[kind](plate) end
+	local entry = table.remove(spares[kind])
+	if not entry then return nil end
+	entry[1]:SetParent(plate)
+	if entry[2] then entry[2]:SetParent(plate) end
+	return entry[1], entry[2]
+end
+
+-- Out of combat: build spare rows up to the count (at login and after every fight).
+function ns.FillSpareAuras()
+	if InCombatLockdown() or not HasAuraContainer() then return end
+	for kind, list in pairs(spares) do
+		if kind ~= "auras" or ns.db.general.showAuras then
+			while #list < SPARE_COUNT do
+				local first, second = builders[kind](spareHolder)
+				first:SetEnabled(false)
+				if second then second:SetEnabled(false) end
+				list[#list + 1] = { first, second }
+			end
+		end
+	end
+end
+
+function Plate:EnsureAuras()
+	if not HasAuraContainer() then return end
+	if not self.auras and ns.db.general.showAuras then self:EnsureDebuffs() end
+	-- the crowd control icon and the removable buffs have their own switches: built even while the
+	-- debuff row is off (until 1.6.6 they came only with the debuff row)
+	self:EnsureCC()
+	self:EnsurePurge()
+end
+
+-- The small row of your own debuffs above the plate.
+function Plate:EnsureDebuffs()
+	if self.auras then return end
+	self.auras = Take("auras", self)
+end
+
+function Plate:EnsurePurge()
+	if self.purge then return end
+	self.purge = Take("purge", self)
+end
+
+function Plate:EnsureCC()
+	if self.cc then return end
+	self.cc, self.ccGlow = Take("cc", self)
+	if self.cc then self.cc:SetFrameLevel(self:GetFrameLevel() + 6) end
+	if self.ccGlow then self.ccGlow:SetFrameLevel(self:GetFrameLevel() + 10) end
 end
 
 ------------------------------------------------------------------------------------------

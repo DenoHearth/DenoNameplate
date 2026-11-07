@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.9 — 2026-11-07
+
+- Debuffs, the crowd control icon and removable enemy buffs now show at once on a mob pulled during a fight. Before, a NamePlate the game first made mid-fight got them only after the fight ended. Ready-made rows are now built out of combat and handed to such plates
+
 ## v1.6.8 — 2026-11-07
 
 - The level number on a NamePlate now has the same colour as on the game's target frame: green, grey, yellow, orange or red by the game's own difficulty rating for that mob. Before, a mob the target frame showed green could show yellow on the NamePlate
