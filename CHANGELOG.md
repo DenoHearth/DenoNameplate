@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.6.8 — 2026-11-07
+
+- The level number on a NamePlate now has the same colour as on the game's target frame: green, grey, yellow, orange or red by the game's own difficulty rating for that mob. Before, a mob the target frame showed green could show yellow on the NamePlate
+
 ## v1.6.7 — 2026-11-05
 
 - Enemy players' pets now always get a NamePlate. Since 1.6.4 they had none at all (neither ours nor the game's) while "Show All Pets" was off, because they were treated like friendly players' pets. "Show All Pets" now only decides about friendly players' pets

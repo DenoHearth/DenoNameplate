@@ -1057,7 +1057,16 @@ function Plate:UpdateLevel()
 			frame.text:SetText("??")
 			frame.text:SetTextColor(1, 0.1, 0.1)
 		else
-			local color = GetCreatureDifficultyColor(level)
+			-- same colour as Blizzard's target frame: the server's difficulty rating for an
+			-- attackable unit, gold for anything else (GetCreatureDifficultyColor uses retail's
+			-- level-gap table and showed a green mob as yellow)
+			local color
+			if Plain(UnitCanAttack("player", unit)) then
+				local difficulty = Plain(C_PlayerInfo.GetContentDifficultyCreatureForPlayer(unit))
+				if difficulty ~= nil then
+					color = GetDifficultyColor(difficulty)
+				end
+			end
 			frame.text:SetText(level)
 			if color then
 				frame.text:SetTextColor(color.r, color.g, color.b)
