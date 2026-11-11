@@ -31,6 +31,7 @@ local function UnitGroup(isEnemy)
 			useClassColor = true,
 			backgroundColor = { 0.2, 0.2, 0.2, 0.85 },
 			playerColor = { 1, 0, 0, 1 },   -- enemy players while useClassColor is off (Enemy page)
+			peacefulColor = { 1, 0.5, 0, 1 },   -- enemy players who cannot attack you (you not PvP flagged), same rule
 		},
 		castBar = {
 			enabled = isEnemy,

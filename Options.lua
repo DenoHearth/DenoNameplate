@@ -140,7 +140,7 @@ local function FontControls(category, group, prefix)
 end
 
 -- A colour: the Settings API has no colour control, so a button opens the picker. `key` is the
--- colour's name under health: backgroundColor, or playerColor (his own enemy player colour).
+-- colour's name under health: backgroundColor, playerColor (his own enemy player colour) or peacefulColor.
 local function ColorButtons(layout, group, key, label, tooltip)
 	local function Open()
 		local color = ns.GroupOptions(group).health[key]
@@ -202,6 +202,8 @@ local function BuildUnitPage(parent, group, title)
 	else
 		ColorButtons(layout, group, "playerColor", "Enemy Player Color",
 			"Health bar colour of enemy players while Use Class Color is off. Mobs keep their usual colours.")
+		ColorButtons(layout, group, "peacefulColor", "Can't Attack Me Color",
+			"Health bar colour of enemy players who cannot attack you, because you are not flagged for PvP, while Use Class Color is off.")
 	end
 
 	Header(layout, "Cast Bar")

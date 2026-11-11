@@ -962,7 +962,10 @@ function Plate:UpdateColor()
 		r, g, b = classColor.r, classColor.g, classColor.b
 	elseif isPlayer and not self.isFriend and not self.options.health.useClassColor then
 		-- class colour off: his own colour for enemy players (Enemy page, Enemy Player Color)
-		local own = self.options.health.playerColor
+		-- orange while they cannot attack you (you are not PvP flagged), as the game colours their
+		-- name over their head (his ask 2026-11-11). A secret answer counts as a threat: red.
+		local health = self.options.health
+		local own = Plain(UnitCanAttack(unit, "player")) == false and health.peacefulColor or health.playerColor
 		r, g, b = own[1], own[2], own[3]
 	elseif self:IsTapDenied() then
 		r, g, b = 0.5, 0.5, 0.5

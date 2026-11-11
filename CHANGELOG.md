@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.7.0 — 2026-11-11
+
+- Enemy players who cannot attack you, because you are not flagged for PvP, now have an orange health bar instead of red, as the game colours their name. Red again as soon as they can attack you
+- New colour button on the Enemy page: "Can't Attack Me Color" (orange by default). It applies while Use Class Color is off, like Enemy Player Color
+
 ## v1.6.9 — 2026-11-07
 
 - Debuffs, the crowd control icon and removable enemy buffs now show at once on a mob pulled during a fight. Before, a NamePlate the game first made mid-fight got them only after the fight ended. Ready-made rows are now built out of combat and handed to such plates
